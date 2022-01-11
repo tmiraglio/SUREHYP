@@ -53,7 +53,7 @@ The reflectance image is then saved as a .bip file.
 
 This package uses SMARTS: Simple Model of the Atmospheric Radiative Transfer of Sunshine, and an updated function from py-SMARTS:
 
-### SMARTS (https://www.nrel.gov/grid/solar-resource/smarts.html)
+### SMARTS 
 **Users can download SMARTS 2.9.5 from https://www.nrel.gov/grid/solar-resource/smarts.html, or contact Dr. Christian A. Gueymard (Chris@SolarConsultingServices.com) for the latest version available.**
 
 Users will have to update the path and the file names depending on their SMARTS version and installation folder in the `runSMARTS` and `smartsALL_original` of `atmoCorrection.py`. Please note that depending on the SMARTS version, some output variables from SMARTS may have different names and therefore need to be updated. The names used in the present script are those of SMARTS v.2.9.8.1.
