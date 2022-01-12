@@ -9,6 +9,7 @@ from pathlib import Path
 from zipfile import ZipFile
 from pyhdf.SD import SD, SDC
 from scipy.ndimage.filters import median_filter,uniform_filter1d
+from scipy.signal import savgol_filter
 from sklearn.decomposition import PCA
 import spectral.io.envi as envi
 
@@ -114,12 +115,11 @@ def alignSWIR2VNIRpart1(VNIR,SWIR):
     VNIR=VNIR[:-1,1:-1,:]
     return VNIR,SWIR
 
-def smileCorrectionAll(array,degree,b1=0,b2=None,check=False):
+def smileCorrectionAll(array,degree,check=False):
     #desmiles the images using the method presented by San and Suzen (2011)
-    #while most papers states the smile should be in the first band of the MNF (band 0), it has  most often been observed on bands 3 and 4 with the present algorithm. Until an algorithm detecting which bands are smiled is implemented, we recommend running a check first to make sure the correct band is desmiled
+    #while in several papers states the smile is in the first band of the MNF (band 0), it is not always the case. The present algorithm searches for the smile band by fitting a `degree` order polynomial function on the column-averaged MNF band. The bands for which the coefficients of order `degree` are above mean+3*std of the coefficients of order `degree` for all bands are assumed to be the smiled bands.
+    #This finding is empirical and led to correct selection of the smiled bands over images EO1H0430332015166110KF, EO1H0430332015288110KF, EO1H0430332014136110P3, EO1H0430332015166110KF, EO1H0430332013149110K4 and EO1H0190262011062110K3 using order 2.  
 
-    if b2==None:
-        b2=b1
     pca = PCA(whiten=True)
     h, w, numBands = array.shape
     X = np.reshape(array, (w*h, numBands))
@@ -129,20 +129,27 @@ def smileCorrectionAll(array,degree,b1=0,b2=None,check=False):
     
     if check==True:
         plotCheckSmile(mnfArray)
-
     colMean=np.mean(mnfArray[:,:,:],axis=0)
+    colMean=savgol_filter(colMean,21,0,axis=0)
+
     bandMean=np.mean(colMean,axis=0)
     x=np.arange(colMean.shape[0])
-    coefs=np.polynomial.polynomial.polyfit(x,colMean,degree)
+    coefs,regOut=np.polynomial.polynomial.polyfit(x,colMean,degree,full=True)
+   
+    coefsStd=np.std(coefs[-1,:])
+    coefsMean=np.mean(coefs[-1,:])
+    b=np.argwhere(np.abs(coefs[-1,:])>coefsMean+3*coefsStd).squeeze()
+
     x=np.tile(np.arange(colMean.shape[0]),(mnfArray.shape[2],1)).T
     fit=fpoly(coefs,x)
     corrMnfArray=mnfArray.copy()
     bandMean=np.tile(np.tile(bandMean,(fit.shape[0],1)),(corrMnfArray.shape[0],1,1))
     fit=np.tile(fit,(corrMnfArray.shape[0],1,1))
-    corrMnfArray[:,:,b1:b2+1]=corrMnfArray[:,:,b1:b2+1]+np.squeeze(bandMean[:,:,b1:b2+1]-fit[:,:,b1:b2+1])
+    corrMnfArray[:,:,b]=corrMnfArray[:,:,b]+np.squeeze(bandMean[:,:,b]-fit[:,:,b])
     corrTransformedX = np.reshape(corrMnfArray, (w*h, numBands))
     corrX=pca.inverse_transform(corrTransformedX)
     corrArray=np.reshape(corrX, (h, w, numBands))
+
     return corrArray
 
 def fpoly(c,x):
@@ -347,23 +354,36 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     
 
 def plotCheckSmile(mnfArray):
-    fig,ax=plt.subplots(1,6)
-    ax[0].imshow(mnfArray[1500:2000,:,0],cmap='binary')
-    ax[1].imshow(mnfArray[1500:2000,:,1],cmap='binary')
-    ax[2].imshow(mnfArray[1500:2000,:,2],cmap='binary')
-    ax[3].imshow(mnfArray[1500:2000,:,3],cmap='binary')
-    ax[4].imshow(mnfArray[1500:2000,:,4],cmap='binary')
-    ax[5].imshow(mnfArray[1500:2000,:,5],cmap='binary')
-    ax[0].set_title('0')
-    ax[1].set_title('1')
-    ax[2].set_title('2')
-    ax[3].set_title('3')
-    ax[4].set_title('4')
-    ax[5].set_title('5')
-    ax[0].axis('off')
-    ax[1].axis('off')
-    ax[2].axis('off')
-    ax[3].axis('off')
-    ax[4].axis('off')
-    ax[5].axis('off')
-    plt.show()
+    fig,ax=plt.subplots(2,5)
+    ax[0,0].imshow(mnfArray[1500:2000,:,0],cmap='binary')
+    ax[0,1].imshow(mnfArray[1500:2000,:,1],cmap='binary')
+    ax[0,2].imshow(mnfArray[1500:2000,:,2],cmap='binary')
+    ax[0,3].imshow(mnfArray[1500:2000,:,3],cmap='binary')
+    ax[0,4].imshow(mnfArray[1500:2000,:,4],cmap='binary')
+
+    ax[0,0].set_title('0')
+    ax[0,1].set_title('1')
+    ax[0,2].set_title('2')
+    ax[0,3].set_title('3')
+    ax[0,4].set_title('4')
+
+    ax[0,0].axis('off')
+    ax[0,1].axis('off')
+    ax[0,2].axis('off')
+    ax[0,3].axis('off')
+    ax[0,4].axis('off')
+    ax[1,0].imshow(mnfArray[1500:2000,:,5],cmap='binary')
+    ax[1,1].imshow(mnfArray[1500:2000,:,6],cmap='binary')
+    ax[1,2].imshow(mnfArray[1500:2000,:,7],cmap='binary')
+    ax[1,3].imshow(mnfArray[1500:2000,:,8],cmap='binary')
+    ax[1,4].imshow(mnfArray[1500:2000,:,9],cmap='binary')
+    ax[1,0].set_title('5')
+    ax[1,1].set_title('6')
+    ax[1,2].set_title('7')
+    ax[1,3].set_title('8')
+    ax[1,4].set_title('9')
+    ax[1,0].axis('off')
+    ax[1,1].axis('off')
+    ax[1,2].axis('off')
+    ax[1,3].axis('off')
+    ax[1,4].axis('off')
