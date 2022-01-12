@@ -10,8 +10,8 @@ import atmoCorrection
 def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut):
     ee.Initialize()
     
-    f=open(pathOut+fname+'_out.txt','w')
-    sys.stdout=f
+    #f=open(pathOut+fname+'_out.txt','w')
+    #sys.stdout=f
 
     print('concatenate the L1T image')
     preprocess.processImage(fname,pathToL1Timages,pathToL1TimagesFiltered) 
@@ -32,13 +32,13 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     VNIR,SWIR=preprocess.alignSWIR2VNIRpart1(VNIR,SWIR)
 
     print('desmiling')
-    VNIR=preprocess.smileCorrectionAll(VNIR,3,b1=3,b2=5,check=False)
-    SWIR=preprocess.smileCorrectionAll(SWIR,3,b1=3,b2=5,check=False)
+    VNIR=preprocess.smileCorrectionAll(VNIR,2,check=True)
+    SWIR=preprocess.smileCorrectionAll(SWIR,2,check=True)
     
     print('destriping')
     VNIR=preprocess.destriping(VNIR,'VNIR',0.11)
     SWIR=preprocess.destriping(SWIR,'SWIR',0.11)
-   
+
     print('aligning VNIR and SWIR, part 2')
     VNIR,SWIR=preprocess.alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb)
 
@@ -51,6 +51,10 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     print('save the processed image as an ENVI file')
     preprocess.savePreprocessedL1R(arrayL1Rgeoreferenced,wavelengths,fwhms,metadataGeoreferenced,pathToL1Rimages,pathToL1Rmetadata,metadata,fname,pathOut)
 
+
+    f.close()        
+
+def atmosphericCorrection(fname,pathOut):
     print('open processed radiance image')
     L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata=atmoCorrection.getImageAndParameters(pathOut+fname+'_L1R_complete')
 
@@ -73,8 +77,6 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     print('save the reflectance image')
     atmoCorrection.saveRimage(R,bands,metadata,pathOut,fname)
 
-    f.close()        
-
 
 if __name__ == '__main__':
     ee.Initialize()
@@ -90,12 +92,21 @@ if __name__ == '__main__':
 
     pathOut='./OUT/'
 
-    fnames=['EO1H0430332015288110KF']
-    fnames=['EO1H0430332016170110KF']
+    #fnames=['EO1H0430332016170110KF']
+    #fnames=['EO1H0430332015288110KF']
+    #fnames=['EO1H0430332014136110P3']
+    #fnames=['EO1H0430332015166110KF']
+    #fnames=['EO1H0430332013149110K4']
+    fnames=['EO1H0190262011062110K3']
+
 
     #preprocessing
-    with Pool(processes=processes) as pool:
-        print('pooling the preprocessing')
-        pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
+    #with Pool(processes=processes) as pool:
+    #    print('pooling the preprocessing')
+    #    pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
 
+    for fname in fnames: 
+        processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut)
 
+    for fname in fnames:
+        atmosphericCorrection(fname,pathOut)
