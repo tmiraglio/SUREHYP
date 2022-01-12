@@ -36,7 +36,7 @@ The corrected L1R image is then georeferenced using the L1T image, using matchin
 
 ### Atmospheric correction
 
-The atmospheric correction is based on the SMARTS (Gueymard (2001),Gueymard (2019)) radiative transfer model. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
+The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
 
 <img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}(L-L_{haze})}{cos\theta_{V}(E_{sun}cos\theta_{Z}T+E_{down})}">
 
@@ -51,15 +51,15 @@ The reflectance image is then saved as a .bip file.
 
 ## NREL softwares
 
-This package uses SMARTS: Simple Model of the Atmospheric Radiative Transfer of Sunshine, and an updated function from py-SMARTS:
+This package uses SMARTS: Simple Model of the Atmospheric Radiative Transfer of Sunshine, and an updated function from the py-SMARTS package.
 
 ### SMARTS 
-**Users can download SMARTS 2.9.5 from https://www.nrel.gov/grid/solar-resource/smarts.html, or contact Dr. Christian A. Gueymard (Chris@SolarConsultingServices.com) for the latest version available.**
+**Users can download SMARTS 2.9.5 from https://www.nrel.gov/grid/solar-resource/smarts.html, or contact Dr. Christian A. Gueymard (Chris@SolarConsultingServices.com) to obtain the latest version available.**
 
 Users will have to update the path and the file names depending on their SMARTS version and installation folder in the `runSMARTS` and `smartsALL_original` of `atmoCorrection.py`. Please note that depending on the SMARTS version, some output variables from SMARTS may have different names and therefore need to be updated. The names used in the present script are those of SMARTS v.2.9.8.1.
 
-### py-SMARTS (https://github.com/NREL/pySMARTS)
-py-SMARTS is shared under a BSD-3-Clause license:
+### py-SMARTS 
+py-SMARTS (https://github.com/NREL/pySMARTS) is shared under a BSD-3-Clause license:
 
 Copyright (c) 2021 National Renewable Energy Laboratory, University of Arizona Board of Regents
 
@@ -77,12 +77,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 P. S. Thenkabail, J. G. Lyon, and A. Huete, Advanced Applications in Remote Sensing of Agricultural Crops and Natural Vegetation. 2018. doi: 10.1201/9780429431166.
 
-B. T. San and M. L. Süzen, “Evaluation of cross-track illumination in EO-1 hyperion imagery for lithological mapping,” International Journal of Remote Sensing, vol. 32, no. 22, pp. 7873–7889, 2011, doi: 10.1080/01431161.2010.532175.
+B. T. San and M. L. S\"{u}zen, "Evaluation of cross-track illumination in EO-1 hyperion imagery for lithological mapping",� International Journal of Remote Sensing, vol. 32, no. 22, pp. 7873-7889, 2011, doi: 10.1080/01431161.2010.532175.
 
-B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, “Preprocessing EO-1 Hyperion hyperspectral data to support the application of agricultural indexes,” IEEE Transactions on Geoscience and Remote Sensing, vol. 41, no. 6 PART I, pp. 1246–1259, Jun. 2003, doi: 10.1109/TGRS.2003.813206.
+B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, "Preprocessing EO-1 Hyperion hyperspectral data to support the application of agricultural indexes",� IEEE Transactions on Geoscience and Remote Sensing, vol. 41, no. 6 PART I, pp. 1246-1259, Jun. 2003, doi: 10.1109/TGRS.2003.813206.
 
-C. A. Gueymard, “Parameterized transmittance model for direct beam and circumsolar spectral irradiance,” Solar Energy, vol. 71, no. 5, pp. 325–346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
+C. A. Gueymard, "Parameterized transmittance model for direct beam and circumsolar spectral irradiance",� Solar Energy, vol. 71, no. 5, pp. 325-346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
 
-C. A. Gueymard, “The SMARTS spectral irradiance model after 25 years: New developments and validation of reference spectra,” Solar Energy, vol. 187, pp. 233–253, Jul. 2019, doi: 10.1016/j.solener.2019.05.048.
+C. A. Gueymard, "The SMARTS spectral irradiance model after 25�years: New developments and validation of reference spectra",� Solar Energy, vol. 187, pp. 233-253, Jul. 2019, doi: 10.1016/j.solener.2019.05.048.
 
-P. S. Chavez, “An improved dark-object subtraction technique for atmospheric scattering correction of multispectral data,” Remote Sensing of Environment, vol. 24, no. 3, pp. 459–479, Apr. 1988, doi: 10.1016/0034-4257(88)90019-3.
+P. S. Chavez, "An improved dark-object subtraction technique for atmospheric scattering correction of multispectral data",� Remote Sensing of Environment, vol. 24, no. 3, pp. 459-479, Apr. 1988, doi: 10.1016/0034-4257(88)90019-3.
