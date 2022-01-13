@@ -36,14 +36,14 @@ The corrected L1R image is then georeferenced using the L1T image, using matchin
 
 ### Atmospheric correction
 
-The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
+The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. It currently assume a flat surface. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
 
-<img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}(L-L_{haze})}{cos\theta_{V}(E_{sun}cos\theta_{Z}T+E_{down})}">
+<img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}(L-L_{haze})}{T_{gs}(E_{sun}cos\theta_{Z}T_{sg}+E_{down})}">
 
 
-with <img src="https://render.githubusercontent.com/render/math?math=\theta_{V}"> the satellite zenith angle, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}"> the solar irradiance, <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> the solar zenith angle, <img src="https://render.githubusercontent.com/render/math?math=T"> the atmospheric transmittance along the sun-ground-sensor path, and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> the diffuse irradiance.
+with <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the ground-sensor path, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}"> the solar irradiance, <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> the solar zenith angle, <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the sun-ground path, and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> the diffuse irradiance.
 
-<img src="https://render.githubusercontent.com/render/math?math=\theta_{V}"> and <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> are known from the image metadata, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}">, <img src="https://render.githubusercontent.com/render/math?math=T"> and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> are outputs from SMARTS, and <img src="https://render.githubusercontent.com/render/math?math=L_{haze}"> is extracted from the image using the dark objet method presented by Chavez (1988).
+<img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> is known from the image metadata, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}">, <img src="https://render.githubusercontent.com/render/math?math=T_{gs}">, <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> are outputs from SMARTS, and <img src="https://render.githubusercontent.com/render/math?math=L_{haze}"> is extracted from the image using the dark objet method presented by Chavez (1988).
 
 Parameters such as ozone concentration, water vapor, or site altitude are extracted from the image using the water vapor absorption bancs (for water vapor) or from Google Earth Engine (for water vapor, ozone and altitude). 
 
