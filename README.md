@@ -77,12 +77,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 P. S. Thenkabail, J. G. Lyon, and A. Huete, Advanced Applications in Remote Sensing of Agricultural Crops and Natural Vegetation. 2018. doi: 10.1201/9780429431166.
 
-B. T. San and M. L. S\"{u}zen, "Evaluation of cross-track illumination in EO-1 hyperion imagery for lithological mapping",ù International Journal of Remote Sensing, vol. 32, no. 22, pp. 7873-7889, 2011, doi: 10.1080/01431161.2010.532175.
+B. T. San and M. L. Suzen, "Evaluation of cross-track illumination in EO-1 hyperion imagery for lithological mapping", International Journal of Remote Sensing, vol. 32, no. 22, pp. 7873-7889, 2011, doi: 10.1080/01431161.2010.532175.
 
-B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, "Preprocessing EO-1 Hyperion hyperspectral data to support the application of agricultural indexes",ù IEEE Transactions on Geoscience and Remote Sensing, vol. 41, no. 6 PART I, pp. 1246-1259, Jun. 2003, doi: 10.1109/TGRS.2003.813206.
+B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, "Preprocessing EO-1 Hyperion hyperspectral data to support the application of agricultural indexes", IEEE Transactions on Geoscience and Remote Sensing, vol. 41, no. 6 PART I, pp. 1246-1259, Jun. 2003, doi: 10.1109/TGRS.2003.813206.
 
-C. A. Gueymard, "Parameterized transmittance model for direct beam and circumsolar spectral irradiance",ù Solar Energy, vol. 71, no. 5, pp. 325-346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
+C. A. Gueymard, "Parameterized transmittance model for direct beam and circumsolar spectral irradiance", Solar Energy, vol. 71, no. 5, pp. 325-346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
 
-C. A. Gueymard, "The SMARTS spectral irradiance model after 25†years: New developments and validation of reference spectra",ù Solar Energy, vol. 187, pp. 233-253, Jul. 2019, doi: 10.1016/j.solener.2019.05.048.
+C. A. Gueymard, "The SMARTS spectral irradiance model after 25†years: New developments and validation of reference spectra", Solar Energy, vol. 187, pp. 233-253, Jul. 2019, doi: 10.1016/j.solener.2019.05.048.
 
-P. S. Chavez, "An improved dark-object subtraction technique for atmospheric scattering correction of multispectral data",ù Remote Sensing of Environment, vol. 24, no. 3, pp. 459-479, Apr. 1988, doi: 10.1016/0034-4257(88)90019-3.
+P. S. Chavez, "An improved dark-object subtraction technique for atmospheric scattering correction of multispectral data", Remote Sensing of Environment, vol. 24, no. 3, pp. 459-479, Apr. 1988, doi: 10.1016/0034-4257(88)90019-3.
