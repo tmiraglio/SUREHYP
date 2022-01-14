@@ -589,22 +589,8 @@ def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,theta
     return wvImg
 
 def darkObjectDehazing(L,bands):
-    Ltmp=L.copy()
-    DOBJ=np.zeros(len(bands))
-    Ltmp=Ltmp[Ltmp[:,:,0]>0,:]
-    for b in np.arange(np.size(bands)):
-        hist,edges=np.histogram(Ltmp[...,b].flatten(),bins=100)
-        #remove lower edges to keep lower side, and remove all edges below 0
-        edges=edges[:-1]
-        toRemove=len(edges[edges<0])
-        hist=hist[toRemove:]
-        edges=edges[toRemove:]
-        #remove all bins with DN==0
-        toRemove=len(hist[hist<=0])
-        toRemove=np.where(hist>0)
-        edges=edges[toRemove[0][0]:]
-        hist=hist[toRemove[0][0]:]
-        DOBJ[b]=edges[0]
+    Ltmp=L[L[:,:,0]>0,:]
+    DOBJ=np.amin(Ltmp,axis=0)
     DOBJ=smoothing(DOBJ,5,1)
     bands_dobj=bands
     c=-0.5
