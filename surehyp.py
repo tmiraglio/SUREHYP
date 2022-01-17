@@ -3,7 +3,9 @@ import sys
 import ee
 from functools import partial
 from multiprocessing import Pool
+import sys
 
+sys.path.append('./func/')
 import preprocess
 import atmoCorrection
 
@@ -65,8 +67,10 @@ def atmosphericCorrection(fname,pathOut):
     wv,o3=atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,thetaZ)
    
     print('obtain radiative transfer outputs')
+    #get the atmosphere parameters for the sun-ground section using the image acquisition time to determine sun angle
     df=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,SUNCOR=atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
-    df_gs=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0.1,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
+    #get the atmosphere parameters for the ground-satellite section by setting the 'sun' (in SMARTS) at the satellite zenith position to get the transmittance over the correct optical path length
+    df_gs=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
     
     print('get haze spectrum')
     L,Lhaze,DOBJ,bands_dobj=atmoCorrection.darkObjectDehazing(L,bands)
@@ -92,11 +96,6 @@ if __name__ == '__main__':
 
     pathOut='./OUT/'
 
-    #fnames=['EO1H0430332016170110KF']
-    #fnames=['EO1H0430332015288110KF']
-    #fnames=['EO1H0430332014136110P3']
-    #fnames=['EO1H0430332015166110KF']
-    #fnames=['EO1H0430332013149110K4']
     fnames=['EO1H0190262011062110K3']
 
 
