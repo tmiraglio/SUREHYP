@@ -2,11 +2,16 @@ import matplotlib.pyplot as plt
 import spectral.io.envi as envi
 import numpy as np
 import ee
+import geetools
 import os
 from scipy.signal import savgol_filter 
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy import interpolate
 from interp3d import interp_3d
+import rasterio
+from rasterio.warp import calculate_default_transform, reproject, Resampling
+import richdem as rd
+from tqdm.auto import tqdm
 
 import various
 
@@ -426,7 +431,6 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         
         ## Read SMARTS 2.9.5 Output File
         data = pd.read_csv('smarts298.ext.txt', delim_whitespace=True)    
-        print(data)
 
     try:
         os.remove('smarts298.inp.txt')
@@ -638,7 +642,7 @@ def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
     Dft=df['Total_Diffuse_tilt_irrad']
     Dgt=df['Global_tilted_irradiance']
 
-    factor=np.pi/T_gs/(T*np.cos(thetaZ)*E+Dft)
+    factor=np.pi/T_gs/Dgt
     factor[W<=1700]=gaussian_filter(factor[W<=1700],various.fwhm2sigma(10))
     factor[W>1700]=gaussian_filter(factor[W>1700],various.fwhm2sigma(2))
     
@@ -671,14 +675,15 @@ def saveRimage(R,bands,metadata,pathOut,scaleFactor=1e5):
 def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
     elev = ee.Image('USGS/SRTMGL1_003');
     elev=elev.select('elevation')
-    slope=ee.Terrain.slope(elev)
-    aspect=ee.Terrain.aspect(elev)
-    region=ee.Geometry.Polygon([[[UL_lon,UL_lat],[UR_lon,UR_lat],[LR_lon,LR_lat],[LL_lon,LL_lat]]],None,False)
+    #slope=ee.Terrain.slope(elev)
+    #aspect=ee.Terrain.aspect(elev)
+    
+    region=ee.Geometry.Polygon([[[UL_lon-0.05,UL_lat+0.05],[UR_lon+0.05,UR_lat+0.05],[LR_lon+0.05,LR_lat-0.05],[LL_lon-0.05,LL_lat-0.05]]],None,False)
     
     elev=elev.clip(region)
     geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
-    geetools.batch.image.toLocal(slope,'slope',scale=30,region=region)
-    geetools.batch.image.toLocal(aspect,'aspect',scale=30,region=region)
+    #geetools.batch.image.toLocal(slope,'slope',scale=30,region=region)
+    #geetools.batch.image.toLocal(aspect,'aspect',scale=30,region=region)
 
     for f in os.listdir('.'):
         if '.zip' in f:
@@ -686,7 +691,6 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
 
 
 def reprojectImage(im,dst_crs,pathOut):
-    print('change projection of L1T')
     with im as src:
         transform, width, height = calculate_default_transform(
             src.crs, dst_crs, src.width, src.height, *src.bounds)
@@ -718,22 +722,16 @@ def get_target_rows_cols(T0,array1,imSecondary):
 
     cols=cols[array1[:,:,40]>=0]
     rows=rows[array1[:,:,40]>=0]
-    t0=time.time()
     xs,ys=rasterio.transform.xy(T0,rows,cols)
-    print('transform xy :'+str(np.round(time.time()-t0,2))+'s')
 
     #get coordinates row/cols in the landcover map
-    t0=time.time()
     rowsSecondary, colsSecondary = rasterio.transform.rowcol(imSecondary.transform, xs,ys)
-    print('transform rowcol :'+str(np.round(time.time()-t0,2))+'s')
 
     rowsSecondary=np.asarray(rowsSecondary)
     colsSecondary=np.asarray(colsSecondary)
     return rows,cols,rowsSecondary, colsSecondary
 
-def extractSecondaryData(array1,imSecondary,rows,cols,rowsSecondary,colsSecondary):
-    t0=time.time()
-    arraySecondary=imSecondary.read()
+def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
     #remove OOB values
     rows=rows[rowsSecondary>0]
     cols=cols[rowsSecondary>0]
@@ -743,24 +741,22 @@ def extractSecondaryData(array1,imSecondary,rows,cols,rowsSecondary,colsSecondar
     cols=cols[colsSecondary>0]
     rowsSecondary=rowsSecondary[colsSecondary>0]
     colsSecondary=colsSecondary[colsSecondary>0]
-    rows=rows[rowsSecondary<arraySecondary.shape[1]]
-    cols=cols[rowsSecondary<arraySecondary.shape[1]]
-    colsSecondary=colsSecondary[rowsSecondary<arraySecondary.shape[1]]
-    rowsSecondary=rowsSecondary[rowsSecondary<arraySecondary.shape[1]]
-    rows=rows[colsSecondary<arraySecondary.shape[2]]
-    rowsSecondary=rowsSecondary[colsSecondary<arraySecondary.shape[1]]
-    cols=cols[colsSecondary<arraySecondary.shape[1]]
-    colsSecondary=colsSecondary[colsSecondary<arraySecondary.shape[1]]
-    print('extract data :'+str(np.round(time.time()-t0,2))+'s')
+    rows=rows[rowsSecondary<array2.shape[0]]
+    cols=cols[rowsSecondary<array2.shape[0]]
+    colsSecondary=colsSecondary[rowsSecondary<array2.shape[0]]
+    rowsSecondary=rowsSecondary[rowsSecondary<array2.shape[0]]
+    rows=rows[colsSecondary<array2.shape[1]]
+    rowsSecondary=rowsSecondary[colsSecondary<array2.shape[1]]
+    cols=cols[colsSecondary<array2.shape[1]]
+    colsSecondary=colsSecondary[colsSecondary<array2.shape[1]]
     
-    t0=time.time()
     arraySecondaryNew=np.zeros((array1.shape[0],array1.shape[1]))
-    arraySecondaryNew[rows,cols]=arraySecondary[:,rowsSecondary,colsSecondary].copy()
+    arraySecondaryNew[rows,cols]=array2[rowsSecondary,colsSecondary].copy()
     arraySecondaryNew=np.reshape(arraySecondaryNew,(array1.shape[0],array1.shape[1]))
-    print('reshape data :'+str(np.round(time.time()-t0,2))+'s')
     return arraySecondaryNew
    
 def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,IH2O,WV,IO3,IALT,AbO3,year,month,day,hour,doy,thetaZ,satelliteZenith,satelliteAzimuth,L,bands):
+
     #prepare the iteration vectors for the LUT building
     ALTITS=np.arange(np.floor(np.nanmin(altitMap)),np.maximum(np.ceil(np.nanmax(altitMap))+stepAltit,np.floor(np.nanmin(altitMap))+2*stepAltit),stepAltit)
     TILTS=np.arange(np.floor(np.nanmin(tiltMap)),np.maximum(np.ceil(np.nanmax(tiltMap))+stepTilt,np.floor(np.nanmin(tiltMap))+2*stepTilt),stepTilt) #decimal degree
@@ -773,7 +769,11 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
     points = (ALTITS, TILTS, WAZIMS)
     xv,yv,zv=np.meshgrid(*points,indexing='ij')
     data=np.zeros((xv.shape[0],xv.shape[1],xv.shape[2],len(W)))
-    
+   
+    print(np.unique(ALTITS))
+    print(np.unique(TILTS))
+    print(np.unique(WAZIMS))
+
     for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
         for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
             for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
@@ -783,8 +783,8 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
                 Dgt=df['Global_tilted_irradiance']
                 T_gs=df_gs['Direct_rad_transmittance']
                 tmp=np.pi/T_gs/(Dgt)
-                tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],fwhm2sigma(10))
-                tmp[W>1700]=gaussian_filter1d(tmp[W>1700],fwhm2sigma(2))
+                tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],various.fwhm2sigma(10))
+                tmp[W>1700]=gaussian_filter1d(tmp[W>1700],various.fwhm2sigma(2))
                 data[i,j,k,:]=tmp
     W=df['Wvlgth'].values
 
@@ -807,3 +807,43 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
     R=R.reshape(L.shape)    
     return R
 
+def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif'):#,path_slope='./slope/download.slope.tif',path_aspect='./aspect/download.aspect.tif',path_slope_out='./slope/tmp.tif',path_aspect_out='./aspect/tmp.tif'):
+    im1=rasterio.open(path_im1)
+
+    im2=rasterio.open(path_elev)
+    reprojectImage(im2,im1.profile['crs'],path_elev_out)
+    #im2=rasterio.open(path_slope)
+    #reprojectImage(im2,im1.profile['crs'],path_slope_out)
+    #im2=rasterio.open(path_aspect)
+    #reprojectImage(im2,im1.profile['crs'],path_aspect_out)
+
+
+
+def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):#,path_slope='./slope/tmp.tif',path_aspect='./aspect/tmp.tif'):
+    im1=rasterio.open(pathToIm1)
+    im1_transform=im1.transform
+    ar1=im1.read()
+    ar1=np.moveaxis(ar1,0,2)
+    rows1,cols1,rows2, cols2=get_target_rows_cols(im1_transform,ar1,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
+    elev=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_elev).read()),rows1,cols1,rows2, cols2)
+    elev[ar1[:,:,40]<=0]=np.nan
+    elev=elev*1e-3
+    #slope=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_slope).read()),rows1,cols1,rows2, cols2)
+    #slope[ar1[:,:,40]<=0]=np.nan
+    #wazim=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_aspect).read()),rows1,cols1,rows2, cols2)
+    #wazim[ar1[:,:,40]<=0]=np.nan
+    
+    slope=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='slope_degrees')
+    slope=extractSecondaryData(ar1,slope,rows1,cols1,rows2, cols2)
+    slope[ar1[:,:,40]<=0]=np.nan
+
+    wazim=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='aspect')
+    wazim=extractSecondaryData(ar1,wazim,rows1,cols1,rows2, cols2)
+    wazim[ar1[:,:,40]<=0]=np.nan
+
+    fig,ax=plt.subplots(1,3)
+    ax[0].imshow(elev)
+    ax[1].imshow(slope)
+    ax[2].imshow(wazim)
+
+    return elev, slope, wazim

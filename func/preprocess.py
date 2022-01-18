@@ -165,20 +165,20 @@ def destriping(array,srange,threshold):
     #destripes the images according to the local method described by Datt et al. (2003)
     #iterates the local neighbourhoods to remove a maximum of stripes
     ngbrh={'VNIR':21,'SWIR':41}
+    mik=np.nanmedian(array,axis=0)
+    sik=np.nanstd(array,axis=0)
     for i in np.arange(ngbrh[srange],5,-2):
-        outlier,mik,sik=getLocalOutlier3D(array,i,threshold)
+        outlier=getLocalOutlier3D(array,mik,sik,i,threshold)
         array=localDestriping3D(array,mik,sik,i,outlier)
     return array
 
-def getLocalOutlier3D(img,ngbrh,thres):
-    mik=np.nanmedian(img,axis=0)
+def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
     lmedmik=median_filter(mik,footprint=np.ones((ngbrh,1)),mode='reflect')
-    sik=np.nanstd(img,axis=0)
     lmedsik=median_filter(sik,footprint=np.ones((ngbrh,1)),mode='reflect')
     test=np.abs(mik-lmedmik)/lmedsik
     outlier=np.zeros(test.shape,dtype=bool)
     outlier[(test-np.nanmin(test,axis=0))>=thres]=True
-    return outlier,mik,sik
+    return outlier
 
 def localDestriping3D(img,mik,sik,ngbrh,outlier):
     mmik=uniform_filter1d(mik,ngbrh,axis=0)
@@ -346,12 +346,8 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
-    envi.save_image(pathOut+fname+'_L1R_complete.hdr',img[:,:,:],metadata=metadata)
+    envi.save_image(pathOut+fname+'_L1R_complete.hdr',img[:,:,:],metadata=metadata,force=True)
 
-    #os.remove(pathOut+fname+'_L1R_complete_tmp')
-    #os.remove(pathOut+fname+'_L1R_complete_tmp.hdr')
-    #os.remove(pathOut+fname+'_L1R_complete_tmp.aux.xml')
-    
 
 def plotCheckSmile(mnfArray):
     fig,ax=plt.subplots(2,5)

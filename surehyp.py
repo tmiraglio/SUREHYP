@@ -3,7 +3,7 @@ import sys
 import ee
 from functools import partial
 from multiprocessing import Pool
-import sys
+import sys, os
 
 sys.path.append('./func/')
 import preprocess
@@ -53,6 +53,9 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     print('save the processed image as an ENVI file')
     preprocess.savePreprocessedL1R(arrayL1Rgeoreferenced,wavelengths,fwhms,metadataGeoreferenced,pathToL1Rimages,pathToL1Rmetadata,metadata,fname,pathOut)
 
+    for f in os.listdir('./OUT/'):
+        if (fname in f) and ('_tmp' in f):
+            os.remove(os.path.join('./OUT/',f))
 
     #f.close()        
 
@@ -81,7 +84,7 @@ def atmosphericCorrection(fname,pathOut):
     R=atmoCorrection.computeLtoE(L,bands,df,df_gs,thetaV,thetaZ)
 
     print('save the reflectance image')
-    atmoCorrection.saveRimage(R,bands,metadata,pathOut+fname+'_Reflectance')
+    atmoCorrection.saveRimage(R,bands,metadata,pathOut+fname+'_Reflectance_flat')
 
     ########################################
     #atmospheric correction -- rough terrain
@@ -89,41 +92,34 @@ def atmosphericCorrection(fname,pathOut):
     atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat)    
  
     print('reproject DEM images')
-    im2=rasterio.open('./elev/SRTMGL1_003.elevation.tif')
-    reprojectImage(im2,im1.profile['crs'],'./elev/tmp.tif')
-    im2=rasterio.open('./slope/download.slope.tif')
-    reprojectImage(im2,im1.profile['crs'],'./slope/tmp.tif')
-    im2=rasterio.open('./aspect/download.aspect.tif')
-    reprojectImage(im2,im1.profile['crs'],'./aspect/tmp.tif')
+    atmoCorrection.reprojectDEM(pathOut+fname+'_L1R_complete.img')
     
     print("extract the data corresponding to the Hyperion image's pixels")
-    im1_transform=rasterio.open(pathOut+fname+'_L1R_complete.img').transform
-    rows1,cols1,rows2, cols2=get_target_rows_cols(im1_transform,L,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
-    elev=extractSecondaryData(im1,L,rasterio.open('./elev/tmp.tif'),rows1,cols1,rows2, cols2)
-    elev[L[:,:,40]<=0]=np.nan
-    elev=elev*1e-3
-    slope=extractSecondaryData(im1,L,rasterio.open('./slope/tmp.tif'),rows1,cols1,rows2, cols2)
-    slope[L[:,:,40]<=0]=np.nan
-    wazim=extractSecondaryData(im1,L,rasterio.open('./aspect/tmp.tif'),rows1,cols1,rows2, cols2)
-    wazim[L[:,:,40]<=0]=np.nan
+    elev, slope, wazim=atmoCorrection.extractDEMdata(pathOut+fname+'_L1R_complete.img')
 
     #define the steps of the LUT
     stepAltit=1
-    stepTilt=15 #there is barely any difference in the results using 15 degrees or 7.5 degrees (less than 1% of relative reflectance difference)
-    stepWazim=15
+    stepTilt=30 #15#there is barely any difference in the results using 15 degrees or 7.5 degrees (less than 1% of relative reflectance difference)
+    stepWazim=45 #15
 
     print('computing the LUT for the rough terrain correciton')
-    R=getSmartsFactorDem(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,thetaZ=thetaZ,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands)
+    R=atmoCorrection.getSmartsFactorDem(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,thetaZ=thetaZ,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands)
 
     print('save the reflectance image')
     atmoCorrection.saveRimage(R,bands,metadata,pathOut+fname+'_Reflectance_topo')
 
+    for f in os.listdir('./elev/'):
+        os.remove(os.path.join('./elev/',f))
+    os.rmdir('./elev')
 
 if __name__ == '__main__':
+
+    import cProfile, pstats
+    profiler = cProfile.Profile()
+    profiler.enable()
+
     ee.Initialize()
     
-    processes=10
-
     pathToL1Rmetadata='./METADATA/METADATA.csv'
     
     pathToL1Timages="./L1T/"    
@@ -133,10 +129,11 @@ if __name__ == '__main__':
 
     pathOut='./OUT/'
 
-    fnames=['EO1H0190262011062110K3']
+    fnames=['EO1H0430332014136110P3']
 
 
     #preprocessing
+    #processes=10
     #with Pool(processes=processes) as pool:
     #    print('pooling the preprocessing')
     #    pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
@@ -146,3 +143,9 @@ if __name__ == '__main__':
 
     for fname in fnames:
         atmosphericCorrection(fname,pathOut)
+
+    profiler.disable()
+
+    with open('cProfile.txt', 'w') as stream:
+        stats = pstats.Stats(profiler, stream=stream).sort_stats('cumtime')
+        stats.print_stats()    
