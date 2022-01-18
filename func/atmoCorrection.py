@@ -6,6 +6,7 @@ import os
 from scipy.signal import savgol_filter 
 from scipy.ndimage.filters import gaussian_filter
 from scipy import interpolate
+from interp3d import interp_3d
 
 import various
 
@@ -490,6 +491,7 @@ def getImageAndParameters(path):
     zenith=float(img.metadata['sun zenith'])
     azimuth=float(img.metadata['sun azimuth'])
     satelliteZenith=float(img.metadata['satellite zenith'])
+    satelliteAzimuth=float(img.metadata['satellite azimuth'])-90
     scaleFactor=float(img.metadata['scale factor'])
    
     UL_lat=float(img.metadata['ul_lat'])
@@ -514,7 +516,7 @@ def getImageAndParameters(path):
     metadata=img.metadata.copy()
     
     L=img[:,:,:]/scaleFactor #image in uW.cm-2.nm-1.sr-1 with scalefactor 
-    return L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata
+    return L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,satelliteAzimuth,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata
 
 def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon):
     dem = ee.Image('USGS/SRTMGL1_003');
@@ -660,8 +662,148 @@ def computeLtoE(L,bands,df,df_gs,thetaV,thetaZ):
     R=factor*L
     return R   
 
-def saveRimage(R,bands,metadata,pathOut,fname,scaleFactor=1e5):
+def saveRimage(R,bands,metadata,pathOut,scaleFactor=1e5):
     scale=1E4*np.ones(bands.shape)
     metadata['scale factor']=scale.tolist()
     R=np.round(R*scaleFactor,0).astype(int)
-    envi.save_image(pathOut+fname+'_Reflectance.hdr',R,metadata=metadata)      
+    envi.save_image(pathOut+'.hdr',R,metadata=metadata)     
+
+def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
+    elev = ee.Image('USGS/SRTMGL1_003');
+    elev=elev.select('elevation')
+    slope=ee.Terrain.slope(elev)
+    aspect=ee.Terrain.aspect(elev)
+    region=ee.Geometry.Polygon([[[UL_lon,UL_lat],[UR_lon,UR_lat],[LR_lon,LR_lat],[LL_lon,LL_lat]]],None,False)
+    
+    elev=elev.clip(region)
+    geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
+    geetools.batch.image.toLocal(slope,'slope',scale=30,region=region)
+    geetools.batch.image.toLocal(aspect,'aspect',scale=30,region=region)
+
+    for f in os.listdir('.'):
+        if '.zip' in f:
+            os.remove(os.path.join('.',f))
+
+
+def reprojectImage(im,dst_crs,pathOut):
+    print('change projection of L1T')
+    with im as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, dst_crs, src.width, src.height, *src.bounds)
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': dst_crs,
+            'transform': transform,
+            'width': width,
+            'height': height,
+            'count': 1
+        })
+    
+        with rasterio.open(pathOut, 'w', **kwargs) as dst:
+            reproject(
+                source=rasterio.band(src, 1),
+                destination=rasterio.band(dst, 1),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=dst_crs,
+                resampling=Resampling.nearest,
+                num_threads=10,
+                warp_mem_limit=1024)
+        dst.close()
+
+def get_target_rows_cols(T0,array1,imSecondary):
+    # All rows and columns
+    cols, rows = np.meshgrid(np.arange(array1.shape[1]), np.arange(array1.shape[0]))
+
+    cols=cols[array1[:,:,40]>=0]
+    rows=rows[array1[:,:,40]>=0]
+    t0=time.time()
+    xs,ys=rasterio.transform.xy(T0,rows,cols)
+    print('transform xy :'+str(np.round(time.time()-t0,2))+'s')
+
+    #get coordinates row/cols in the landcover map
+    t0=time.time()
+    rowsSecondary, colsSecondary = rasterio.transform.rowcol(imSecondary.transform, xs,ys)
+    print('transform rowcol :'+str(np.round(time.time()-t0,2))+'s')
+
+    rowsSecondary=np.asarray(rowsSecondary)
+    colsSecondary=np.asarray(colsSecondary)
+    return rows,cols,rowsSecondary, colsSecondary
+
+def extractSecondaryData(array1,imSecondary,rows,cols,rowsSecondary,colsSecondary):
+    t0=time.time()
+    arraySecondary=imSecondary.read()
+    #remove OOB values
+    rows=rows[rowsSecondary>0]
+    cols=cols[rowsSecondary>0]
+    colsSecondary=colsSecondary[rowsSecondary>0]
+    rowsSecondary=rowsSecondary[rowsSecondary>0]
+    rows=rows[colsSecondary>0]
+    cols=cols[colsSecondary>0]
+    rowsSecondary=rowsSecondary[colsSecondary>0]
+    colsSecondary=colsSecondary[colsSecondary>0]
+    rows=rows[rowsSecondary<arraySecondary.shape[1]]
+    cols=cols[rowsSecondary<arraySecondary.shape[1]]
+    colsSecondary=colsSecondary[rowsSecondary<arraySecondary.shape[1]]
+    rowsSecondary=rowsSecondary[rowsSecondary<arraySecondary.shape[1]]
+    rows=rows[colsSecondary<arraySecondary.shape[2]]
+    rowsSecondary=rowsSecondary[colsSecondary<arraySecondary.shape[1]]
+    cols=cols[colsSecondary<arraySecondary.shape[1]]
+    colsSecondary=colsSecondary[colsSecondary<arraySecondary.shape[1]]
+    print('extract data :'+str(np.round(time.time()-t0,2))+'s')
+    
+    t0=time.time()
+    arraySecondaryNew=np.zeros((array1.shape[0],array1.shape[1]))
+    arraySecondaryNew[rows,cols]=arraySecondary[:,rowsSecondary,colsSecondary].copy()
+    arraySecondaryNew=np.reshape(arraySecondaryNew,(array1.shape[0],array1.shape[1]))
+    print('reshape data :'+str(np.round(time.time()-t0,2))+'s')
+    return arraySecondaryNew
+   
+def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,IH2O,WV,IO3,IALT,AbO3,year,month,day,hour,doy,thetaZ,satelliteZenith,satelliteAzimuth,L,bands):
+    #prepare the iteration vectors for the LUT building
+    ALTITS=np.arange(np.floor(np.nanmin(altitMap)),np.maximum(np.ceil(np.nanmax(altitMap))+stepAltit,np.floor(np.nanmin(altitMap))+2*stepAltit),stepAltit)
+    TILTS=np.arange(np.floor(np.nanmin(tiltMap)),np.maximum(np.ceil(np.nanmax(tiltMap))+stepTilt,np.floor(np.nanmin(tiltMap))+2*stepTilt),stepTilt) #decimal degree
+    WAZIMS=np.arange(np.floor(np.nanmin(wazimMap)),np.maximum(np.ceil(np.nanmax(wazimMap))+stepWazim,np.floor(np.nanmin(wazimMap))+stepWazim),stepWazim)
+   
+    #first dry run to get W
+    df=runSMARTS(ALTIT=0,ITILT='1',TILT=0,WAZIM=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy))
+    W=df['Wvlgth'].values
+
+    points = (ALTITS, TILTS, WAZIMS)
+    xv,yv,zv=np.meshgrid(*points,indexing='ij')
+    data=np.zeros((xv.shape[0],xv.shape[1],xv.shape[2],len(W)))
+    
+    for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
+        for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
+            for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
+                df=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
+                df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=satelliteZenith,AZIM=satelliteAzimuth,IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
+
+                Dgt=df['Global_tilted_irradiance']
+                T_gs=df_gs['Direct_rad_transmittance']
+                tmp=np.pi/T_gs/(Dgt)
+                tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],fwhm2sigma(10))
+                tmp[W>1700]=gaussian_filter1d(tmp[W>1700],fwhm2sigma(2))
+                data[i,j,k,:]=tmp
+    W=df['Wvlgth'].values
+
+    #interpFunction = interpolate.RegularGridInterpolator((ALTITS, TILTS, WAZIMS), data)
+    interpFunction = interp_3d.Interp3D(data,ALTITS,TILTS,WAZIMS)
+    
+    data=None
+   
+    L[L<0]=0
+    L[np.isnan(L)]=0
+    idx=np.argwhere(L[:,:,40].flatten()>0).squeeze()
+   
+    R=np.zeros((L.shape[0]*L.shape[1],L.shape[2])).squeeze()
+    Lflat=L.reshape((L.shape[0]*L.shape[1],L.shape[2]))
+    for idxx in np.array_split(idx,100):
+        values=np.stack((altitMap.flatten()[idxx],tiltMap.flatten()[idxx],wazimMap.flatten()[idxx]),axis=-1)
+        M=interpFunction(values)
+        f=interpolate.interp1d(W,M)
+        R[idxx,:]=f(bands)*Lflat[idxx,:]
+    R=R.reshape(L.shape)    
+    return R
+

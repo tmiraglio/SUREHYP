@@ -54,11 +54,14 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     preprocess.savePreprocessedL1R(arrayL1Rgeoreferenced,wavelengths,fwhms,metadataGeoreferenced,pathToL1Rimages,pathToL1Rmetadata,metadata,fname,pathOut)
 
 
-    f.close()        
+    #f.close()        
 
 def atmosphericCorrection(fname,pathOut):
     print('open processed radiance image')
-    L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata=atmoCorrection.getImageAndParameters(pathOut+fname+'_L1R_complete')
+    L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,satelliteAzimuth,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata=atmoCorrection.getImageAndParameters(pathOut+fname+'_L1R_complete')
+    
+    print('get haze spectrum')
+    L,Lhaze,DOBJ,bands_dobj=atmoCorrection.darkObjectDehazing(L,bands)
 
     print('get average elevation of the scene from GEE')
     altit=atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon)
@@ -66,20 +69,54 @@ def atmosphericCorrection(fname,pathOut):
     print('get atmosphere content')
     wv,o3=atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,thetaZ)
    
+    ########################################
+    # Atmospheric correction -- flat surface
     print('obtain radiative transfer outputs')
     #get the atmosphere parameters for the sun-ground section using the image acquisition time to determine sun angle
     df=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,SUNCOR=atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
     #get the atmosphere parameters for the ground-satellite section by setting the 'sun' (in SMARTS) at the satellite zenith position to get the transmittance over the correct optical path length
     df_gs=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
     
-    print('get haze spectrum')
-    L,Lhaze,DOBJ,bands_dobj=atmoCorrection.darkObjectDehazing(L,bands)
-    
     print('compute radiance to reflectance')
     R=atmoCorrection.computeLtoE(L,bands,df,df_gs,thetaV,thetaZ)
 
     print('save the reflectance image')
-    atmoCorrection.saveRimage(R,bands,metadata,pathOut,fname)
+    atmoCorrection.saveRimage(R,bands,metadata,pathOut+fname+'_Reflectance')
+
+    ########################################
+    #atmospheric correction -- rough terrain
+    print('download DEM images from GEE')
+    atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat)    
+ 
+    print('reproject DEM images')
+    im2=rasterio.open('./elev/SRTMGL1_003.elevation.tif')
+    reprojectImage(im2,im1.profile['crs'],'./elev/tmp.tif')
+    im2=rasterio.open('./slope/download.slope.tif')
+    reprojectImage(im2,im1.profile['crs'],'./slope/tmp.tif')
+    im2=rasterio.open('./aspect/download.aspect.tif')
+    reprojectImage(im2,im1.profile['crs'],'./aspect/tmp.tif')
+    
+    print("extract the data corresponding to the Hyperion image's pixels")
+    im1_transform=rasterio.open(pathOut+fname+'_L1R_complete.img').transform
+    rows1,cols1,rows2, cols2=get_target_rows_cols(im1_transform,L,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
+    elev=extractSecondaryData(im1,L,rasterio.open('./elev/tmp.tif'),rows1,cols1,rows2, cols2)
+    elev[L[:,:,40]<=0]=np.nan
+    elev=elev*1e-3
+    slope=extractSecondaryData(im1,L,rasterio.open('./slope/tmp.tif'),rows1,cols1,rows2, cols2)
+    slope[L[:,:,40]<=0]=np.nan
+    wazim=extractSecondaryData(im1,L,rasterio.open('./aspect/tmp.tif'),rows1,cols1,rows2, cols2)
+    wazim[L[:,:,40]<=0]=np.nan
+
+    #define the steps of the LUT
+    stepAltit=1
+    stepTilt=15 #there is barely any difference in the results using 15 degrees or 7.5 degrees (less than 1% of relative reflectance difference)
+    stepWazim=15
+
+    print('computing the LUT for the rough terrain correciton')
+    R=getSmartsFactorDem(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,thetaZ=thetaZ,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands)
+
+    print('save the reflectance image')
+    atmoCorrection.saveRimage(R,bands,metadata,pathOut+fname+'_Reflectance_topo')
 
 
 if __name__ == '__main__':
