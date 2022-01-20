@@ -3,7 +3,8 @@ import sys
 import ee
 from functools import partial
 from multiprocessing import Pool
-import sys
+import sys,os
+import matplotlib.pyplot as plt
 
 sys.path.append('./func/')
 import preprocess
@@ -53,27 +54,35 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     print('save the processed image as an ENVI file')
     preprocess.savePreprocessedL1R(arrayL1Rgeoreferenced,wavelengths,fwhms,metadataGeoreferenced,pathToL1Rimages,pathToL1Rmetadata,metadata,fname,pathOut)
 
+    for f in os.listdir('./OUT/'):
+        if (fname in f) and ('_tmp' in f):
+            os.remove(os.path.join('./OUT/',f))
 
-    f.close()        
+    #f.close()        
 
 def atmosphericCorrection(fname,pathOut):
     print('open processed radiance image')
     L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata=atmoCorrection.getImageAndParameters(pathOut+fname+'_L1R_complete')
+    
+    print('removal of thin cirrus')
+    L=atmoCorrection.cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV)
+    atmoCorrection.saveRimage(L,bands,metadata,pathOut+'cirrus_',fname)
+
+    print('get haze spectrum')
+    L,Lhaze,DOBJ,bands_dobj=atmoCorrection.darkObjectDehazing(L,bands)
+
 
     print('get average elevation of the scene from GEE')
     altit=atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon)
 
     print('get atmosphere content')
     wv,o3=atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,thetaZ)
-   
+
     print('obtain radiative transfer outputs')
     #get the atmosphere parameters for the sun-ground section using the image acquisition time to determine sun angle
     df=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,SUNCOR=atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
     #get the atmosphere parameters for the ground-satellite section by setting the 'sun' (in SMARTS) at the satellite zenith position to get the transmittance over the correct optical path length
     df_gs=atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
-    
-    print('get haze spectrum')
-    L,Lhaze,DOBJ,bands_dobj=atmoCorrection.darkObjectDehazing(L,bands)
     
     print('compute radiance to reflectance')
     R=atmoCorrection.computeLtoE(L,bands,df,df_gs,thetaV,thetaZ)
@@ -96,7 +105,7 @@ if __name__ == '__main__':
 
     pathOut='./OUT/'
 
-    fnames=['EO1H0190262011062110K3']
+    fnames=['EO1H0430332013149110K4']
 
 
     #preprocessing
@@ -104,8 +113,8 @@ if __name__ == '__main__':
     #    print('pooling the preprocessing')
     #    pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
 
-    for fname in fnames: 
-        processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut)
+    #for fname in fnames: 
+    #    processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut)
 
     for fname in fnames:
         atmosphericCorrection(fname,pathOut)

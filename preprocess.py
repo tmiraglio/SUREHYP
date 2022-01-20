@@ -12,6 +12,7 @@ from scipy.ndimage.filters import median_filter,uniform_filter1d
 from scipy.signal import savgol_filter
 from sklearn.decomposition import PCA
 import spectral.io.envi as envi
+import spectral
 
 def processImage(fname,pathToImages,pathToImagesFiltered):
     #compiles all TIF bands of the Hyperion image fname into a single TIF image
@@ -165,20 +166,29 @@ def destriping(array,srange,threshold):
     #destripes the images according to the local method described by Datt et al. (2003)
     #iterates the local neighbourhoods to remove a maximum of stripes
     ngbrh={'VNIR':21,'SWIR':41}
+    mik=np.nanmedian(array,axis=0)
+    sik=np.nanstd(array,axis=0)
     for i in np.arange(ngbrh[srange],5,-2):
-        outlier,mik,sik=getLocalOutlier3D(array,i,threshold)
+        outlier=getLocalOutlier3D(array,mik,sik,i,threshold)
         array=localDestriping3D(array,mik,sik,i,outlier)
     return array
 
-def getLocalOutlier3D(img,ngbrh,thres):
-    mik=np.nanmedian(img,axis=0)
+def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
     lmedmik=median_filter(mik,footprint=np.ones((ngbrh,1)),mode='reflect')
-    sik=np.nanstd(img,axis=0)
     lmedsik=median_filter(sik,footprint=np.ones((ngbrh,1)),mode='reflect')
     test=np.abs(mik-lmedmik)/lmedsik
+  
+    #print(lmedsik)
+    #print(lmedmik)
+    #print(lmedmik.shape)
+    #print(test.shape)
+    #fig,ax=plt.subplots()
+    #ax.plot(test[:,45])
+    #plt.show()
+
     outlier=np.zeros(test.shape,dtype=bool)
     outlier[(test-np.nanmin(test,axis=0))>=thres]=True
-    return outlier,mik,sik
+    return outlier
 
 def localDestriping3D(img,mik,sik,ngbrh,outlier):
     mmik=uniform_filter1d(mik,ngbrh,axis=0)
@@ -303,7 +313,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
         'driver': 'ENVI',
         'interleave':'bsq',
         'dtype': rasterio.uint16,
-        'count': arrayL1RGeoreferenced.shape[0],
+        'count': 1,
         'width': arrayL1RGeoreferenced.shape[2],
         'height': arrayL1RGeoreferenced.shape[1],
         'tiled': True,
@@ -312,10 +322,10 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     })   
 
     with rasterio.open(pathOut+fname+'_L1R_complete_tmp','w',**kwargs) as out:
-        out.write(arrayL1RGeoreferenced)
+        out.write(arrayL1RGeoreferenced[0,:,:],1)
         out.close()
-    arrayL1RGeoreferenced=np.moveaxis(arrayL1RGeoreferenced,0,2)
 
+    arrayL1RGeoreferenced=np.moveaxis(arrayL1RGeoreferenced,0,2)
     bandNames=np.asarray(metadataL1R['band names'].copy())[np.r_[7:56,77:223]]
     sunZenith,sunAzimuth,satelliteZenith,satelliteAzimuth,centerLon,centerLat,acquisitionDate,acquisitionTimeStart,acquisitionTimeStop,ID=getAcquisitionsProperties(pathToL1Rmetadata,fname)
    
@@ -323,6 +333,11 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
 
     img=envi.open(pathOut+fname+'_L1R_complete_tmp.hdr',pathOut+fname+'_L1R_complete_tmp') 
     metadata=img.metadata.copy()
+    metadata=metadataL1R.copy()
+    metadata.pop('read procedures')
+    metadata.pop('subset procedure')
+    metadata['data type']= rasterio.uint16
+    metadata['interleave']='bip'
     metadata['wavelength']=wavelengths.tolist()
     metadata['fwhm']=fwhms.tolist()
     metadata['band names']=bandNames.tolist()
@@ -346,12 +361,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
-    envi.save_image(pathOut+fname+'_L1R_complete.hdr',img[:,:,:],metadata=metadata)
-
-    #os.remove(pathOut+fname+'_L1R_complete_tmp')
-    #os.remove(pathOut+fname+'_L1R_complete_tmp.hdr')
-    #os.remove(pathOut+fname+'_L1R_complete_tmp.aux.xml')
-    
+    envi.save_image(pathOut+fname+'_L1R_complete.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,dtype=rasterio.uint16,force=True,interleave='bip')
 
 def plotCheckSmile(mnfArray):
     fig,ax=plt.subplots(2,5)

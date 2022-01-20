@@ -425,7 +425,6 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         
         ## Read SMARTS 2.9.5 Output File
         data = pd.read_csv('smarts298.ext.txt', delim_whitespace=True)    
-        print(data)
 
     try:
         os.remove('smarts298.inp.txt')
@@ -664,4 +663,51 @@ def saveRimage(R,bands,metadata,pathOut,fname,scaleFactor=1e5):
     scale=1E4*np.ones(bands.shape)
     metadata['scale factor']=scale.tolist()
     R=np.round(R*scaleFactor,0).astype(int)
-    envi.save_image(pathOut+fname+'_Reflectance.hdr',R,metadata=metadata)      
+    R[R>1e7]=1e7
+    R[R<0]=0
+    envi.save_image(pathOut+fname+'_Reflectance.hdr',R,metadata=metadata,force=True)     
+
+def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):  
+    #compute TOA reflectance
+    df=runSMARTS(ALTIT=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=0,IO3=0,IALT=0,AbO3=0)
+    W=df['Wvlgth'].values
+    E=df['Extraterrestrial_spectrm'].values
+    factor=np.pi/(E*np.cos(thetaV))
+    factor[W<=1700]=gaussian_filter(factor[W<=1700],various.fwhm2sigma(10))
+    factor[W>1700]=gaussian_filter(factor[W>1700],various.fwhm2sigma(2))
+    f=interpolate.interp1d(W,factor)
+    factor=f(bands)
+    return factor
+
+def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
+    #uses the method presented by Gao et al 1997, 2017 to remove cirrus effects
+    #returns the cirrus-removed TOA radiance
+    factor=getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV)
+    R=factor*L
+    R[L<=0]=0
+
+    Rcirrus=R[:,:,np.argmin(np.abs(bands-1380))]
+    r1380=Rcirrus[Rcirrus>0]
+    rlambda=R[Rcirrus>0,:]
+
+    xs=[]
+    ys=[]
+    for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.5):
+        cond=np.logical_and(r1380>=i,r1380<i+1)
+        tmp1380=r1380[cond]
+        tmpLambda=rlambda[cond,:]
+        if not len(tmpLambda)==0:
+            xs.append(np.amin(tmpLambda,axis=0))
+            ys.append(tmp1380[np.argmin(tmpLambda,axis=0)])
+    xs=np.asarray(xs)
+    ys=np.asarray(ys)
+    Ka=[]
+    for b in np.arange(xs.shape[1]):
+        p=np.polyfit(xs[:,b],ys[:,b],1) 
+        Ka.append(p[0])
+    Ka=np.asarray(Ka)
+    Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
+    Rcorr=R-Rcirrus/Ka
+    Lcorr=Rcorr/factor
+    Lcorr[L<=0]=0
+    return Lcorr
