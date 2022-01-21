@@ -12,6 +12,8 @@ import rasterio
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import richdem as rd
 from tqdm.auto import tqdm
+import pandas as pd
+import subprocess
 
 import various
 
@@ -30,7 +32,7 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
         col=5
     else:
         col=6
-    dico_aero={
+    dico_aero={ #From FLAASH user manual
             (8,1):'SAW',(8,2):'SAW',(8,3):'SAW',(8,4):'MLW',(8,5):'MLW',(8,5):'SAW',
             (7,1):'SAW',(7,2):'SAW',(7,3):'MLW',(7,4):'MLW',(7,5):'MLW',(7,5):'SAW',
             (6,1):'MLW',(6,2):'MLW',(6,3):'MLW',(6,4):'SAS',(6,5):'SAS',(6,5):'MLW',
@@ -56,7 +58,7 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     ALTIT=str(ALTIT)
     HEIGHT='0'
     IATMOS='1'
-    ATMOS=dico_aero[(np.round(LATIT/10,0),col)] #'MLS'
+    ATMOS=dico_aero[(np.round(LATIT/10,0),col)]
     LATIT=str(LATIT)
     RH=None
     TAIR=None
@@ -147,10 +149,6 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     return output
 
 def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP):
-    ## Init
-    import os
-    import pandas as pd
-    import subprocess
 
     # Check if SMARTSPATH environment variable exists and change working
     # directory if it does.
@@ -436,10 +434,10 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         os.remove('smarts298.inp.txt')
     except:
         pass #     print("")
-    #try:
-    #    os.remove('smarts298.out.txt')
-    #except:
-    #    pass #     print("")
+    try:
+        os.remove('smarts298.out.txt')
+    except:
+        pass #     print("")
     try:
         os.remove('smarts298.ext.txt')
     except:
@@ -741,15 +739,11 @@ def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
 def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
     elev = ee.Image('USGS/SRTMGL1_003');
     elev=elev.select('elevation')
-    #slope=ee.Terrain.slope(elev)
-    #aspect=ee.Terrain.aspect(elev)
 
     region=ee.Geometry.Polygon([[[UL_lon-0.05,UL_lat+0.05],[UR_lon+0.05,UR_lat+0.05],[LR_lon+0.05,LR_lat-0.05],[LL_lon-0.05,LL_lat-0.05]]],None,False)
 
     elev=elev.clip(region)
     geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
-    #geetools.batch.image.toLocal(slope,'slope',scale=30,region=region)
-    #geetools.batch.image.toLocal(aspect,'aspect',scale=30,region=region)
 
     for f in os.listdir('.'):
         if '.zip' in f:
@@ -836,10 +830,6 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
     xv,yv,zv=np.meshgrid(*points,indexing='ij')
     data=np.zeros((xv.shape[0],xv.shape[1],xv.shape[2],len(W)))
 
-    print(np.unique(ALTITS))
-    print(np.unique(TILTS))
-    print(np.unique(WAZIMS))
-
     for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
         for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
             for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
@@ -873,19 +863,13 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
     R=R.reshape(L.shape)
     return R
 
-def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif'):#,path_slope='./slope/download.slope.tif',path_aspect='./aspect/download.aspect.tif',path_slope_out='./slope/tmp.tif',path_aspect_out='./aspect/tmp.tif'):
+def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif'):
     im1=rasterio.open(path_im1)
 
     im2=rasterio.open(path_elev)
     reprojectImage(im2,im1.profile['crs'],path_elev_out)
-    #im2=rasterio.open(path_slope)
-    #reprojectImage(im2,im1.profile['crs'],path_slope_out)
-    #im2=rasterio.open(path_aspect)
-    #reprojectImage(im2,im1.profile['crs'],path_aspect_out)
 
-
-
-def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):#,path_slope='./slope/tmp.tif',path_aspect='./aspect/tmp.tif'):
+def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):
     im1=rasterio.open(pathToIm1)
     im1_transform=im1.transform
     ar1=im1.read()
@@ -894,10 +878,6 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):#,path_slope='./slope/t
     elev=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_elev).read()),rows1,cols1,rows2, cols2)
     elev[ar1[:,:,40]<=0]=np.nan
     elev=elev*1e-3
-    #slope=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_slope).read()),rows1,cols1,rows2, cols2)
-    #slope[ar1[:,:,40]<=0]=np.nan
-    #wazim=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_aspect).read()),rows1,cols1,rows2, cols2)
-    #wazim[ar1[:,:,40]<=0]=np.nan
 
     slope=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='slope_degrees')
     slope=extractSecondaryData(ar1,slope,rows1,cols1,rows2, cols2)

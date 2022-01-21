@@ -9,7 +9,7 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 [preprocess](./func/preprocess.py) contains the various functions called in the preprocessing step, to obtain georeferenced, desmiled, and destriped hyperspectral images.
 
-[atmoCorrecition](./func/atmoCorrection.py) contains the various functions called during the atmospheric correction.  
+[atmoCorrection](./func/atmoCorrection.py) contains the various functions called during the atmospheric correction.  
 
 [various](./func/various.py) contains a variety of useful functions that may be called by the other files.  
 
