@@ -1,20 +1,24 @@
 # SUREHYP
 ## Surface Reflectance from Hyperion: a Python package to preprocess Hyperion imagery and retrieve surface reflectance
 
-This package was designed to obtain desmiled, destriped and georeferenced reflectance images from Hyperion imagery. It requires both L1R and L1T radiance data, as well as their associated metadata, that can be downloaded from https://earthexplorer.usgs.gov/.
+This package was designed to obtain desmiled, destriped and georeferenced reflectance images from Hyperion imagery. It requires both L1R and L1T radiance data, as well as their associated metadata, that can be downloaded from the [USGS](https://earthexplorer.usgs.gov/) website.
 
 ## Description
 
-`surehyp.py` is an example script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
+[surehyp](./surehyp.py) is an example script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
 
-`preprocess.py` contains the various functions called in the preprocessing step, to obtain georeferenced, desmiled, and destriped hyperspectral images.
+[preprocess](./func/preprocess.py) contains the various functions called in the preprocessing step, to obtain georeferenced, desmiled, and destriped hyperspectral images.
 
-`atmoCorrection.py` contains the various functions called during the atmospheric correction.  
+[atmoCorrecition](./func/atmoCorrection.py) contains the various functions called during the atmospheric correction.  
+
+[various](./func/various.py) contains a variety of useful functions that may be called by the other files.  
 
 ### Required packages
 
+- `cython`
 - `numpy`
 - `ee`
+- `geetools`
 - `matplotlib`
 - `spectral`
 - `scipy`
@@ -23,6 +27,13 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 - `pyhdf`
 - `scikit-learn`
 - `rasterio`
+- `richdem`
+
+### Installation
+
+A cython library must be compiled to allow usage of a 3D interpolation function faster than scipy's. To install it, navigate to the [interp3d](./func/cython_libraries/interp3d/) folder and run
+
+> python setup.py install
 
 ### Preprocessing
 
@@ -41,16 +52,22 @@ The corrected L1R image is then georeferenced using the L1T image, using matchin
 
 A thin cirrus removal method, according to the works of Gao and Li (2017), is available.
 
-The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. It currently assumes a flat surface. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
+The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. Two options are available:
+
+- surface if considered flat, with an altitude corresponding to the site average
+- topography is taken into account
+
+The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
 
 <img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}*(L-L_{haze})}{T_{gs}*(E_{sun}*cos\theta_{Z}*T_{sg}+E_{down})}">
 
-
-with <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the ground-sensor path, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}"> the solar irradiance, <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> the solar zenith angle, <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the sun-ground path, and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> the diffuse irradiance.
+with <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the ground-sensor path, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}"> the solar irradiance, <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> angle of solar incidence on the surace (zenith angle if surface is considered flat), <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the sun-ground path, and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> the diffuse irradiance.
 
 <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> is known from the image metadata, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}">, <img src="https://render.githubusercontent.com/render/math?math=T_{gs}">, <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> are outputs from SMARTS, and <img src="https://render.githubusercontent.com/render/math?math=L_{haze}"> is extracted from the image using the dark objet method presented by Chavez (1988).
 
 Parameters such as ozone concentration, water vapor, or site altitude are extracted from the image using the water vapor absorption bands (for water vapor) or from Google Earth Engine (for water vapor, ozone and altitude). 
+
+The DEM is downloaded from GEE and slope and aspect are obtained locally to save download time as downloading the three images from GEE may be slow.
 
 The reflectance image is then saved as a .bip file.
 
@@ -59,12 +76,12 @@ The reflectance image is then saved as a .bip file.
 This package uses SMARTS: Simple Model of the Atmospheric Radiative Transfer of Sunshine, and an updated function from the py-SMARTS package.
 
 ### SMARTS 
-**Users can download SMARTS 2.9.5 from https://www.nrel.gov/grid/solar-resource/smarts.html, or contact Dr. Christian A. Gueymard (Chris@SolarConsultingServices.com) to obtain the latest version available.**
+**Users can download SMARTS 2.9.5 from [NREL](https://www.nrel.gov/grid/solar-resource/smarts.html), or contact Dr. Christian A. Gueymard (Chris@SolarConsultingServices.com) to obtain the latest version available.**
 
-Users will have to update the path and the file names depending on their SMARTS version and installation folder in the functions `runSMARTS` and `smartsALL_original` of `atmoCorrection.py`. Please note that depending on the SMARTS version, some output variables from SMARTS may have different names and therefore need to be updated. The names used in the present script are those of SMARTS v.2.9.8.1.
+Users will have to update the path and the file names depending on their SMARTS version and installation folder in the functions `runSMARTS` and `smartsALL_original` of [atmoCorrection](./func/atmoCorretion.py). Please note that depending on the SMARTS version, some output variables from SMARTS may have different names and therefore need to be updated. The names used in the present script are those of SMARTS v.2.9.8.1.
 
 ### py-SMARTS 
-py-SMARTS (https://github.com/NREL/pySMARTS) is shared under a BSD-3-Clause license:
+[py-SMARTS](https://github.com/NREL/pySMARTS) is shared under a BSD-3-Clause license:
 
 Copyright (c) 2021 National Renewable Energy Laboratory, University of Arizona Board of Regents
 

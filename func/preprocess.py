@@ -408,7 +408,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
-    envi.save_image(pathOut+fname+'_L1R_complete.hdr',img[:,:,:],metadata=metadata,force=True)
+    envi.save_image(pathOut+fname+'_L1R_complete.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,force=True)
 
 
 def plotCheckSmile(mnfArray):
