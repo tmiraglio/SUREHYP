@@ -79,15 +79,15 @@ def getImageCorners(pathToL1Rimages,fname):
         LL_lon=lines[-4][24:-1]
         LR_lat=lines[-3][24:-1]
         LR_lon=lines[-2][24:-1]
-    return UL_lat, UL_lon, UR_lat, UR_lon, LL_lat, LL_lon, LR_lat, LR_lon 
-       
+    return UL_lat, UL_lon, UR_lat, UR_lon, LL_lat, LL_lon, LR_lat, LR_lon
+
 def readL1R(path,fname):
     #reads the L1R HDF4 file and reorganizes the axes so that the bands are on axis 2
-    #returns the hyperspectral array 
+    #returns the hyperspectral array
     file = SD(path+'/'+fname+'.L1R', SDC.READ)
     img = file.select(fname+'.L1R',) # select sds
     array=img[:,:,:].copy().astype(float)
-    array=np.swapaxes(array,1,2)   
+    array=np.swapaxes(array,1,2)
     return array
 
 def getImageMetadata(path,fname):
@@ -120,15 +120,15 @@ def alignSWIR2VNIRpart1(VNIR,SWIR):
 def smileCorrectionAll(array,degree,check=False):
     #desmiles the images using the method presented by San and Suzen (2011)
     #while in several papers states the smile is in the first band of the MNF (band 0), it is not always the case. The present algorithm searches for the smile band by fitting a `degree` order polynomial function on the column-averaged MNF band. The bands for which the coefficients of order `degree` are above mean+3*std of the coefficients of order `degree` for all bands are assumed to be the smiled bands.
-    #This finding is empirical and led to correct selection of the smiled bands over images EO1H0430332015166110KF, EO1H0430332015288110KF, EO1H0430332014136110P3, EO1H0430332015166110KF, EO1H0430332013149110K4 and EO1H0190262011062110K3 using order 2.  
+    #This finding is empirical and led to correct selection of the smiled bands over images EO1H0430332015166110KF, EO1H0430332015288110KF, EO1H0430332014136110P3, EO1H0430332015166110KF, EO1H0430332013149110K4 and EO1H0190262011062110K3 using order 2.
 
     pca = PCA(whiten=True)
     h, w, numBands = array.shape
     X = np.reshape(array, (w*h, numBands))
     pca.fit(X)
     transformed_X = pca.transform(X)
-    mnfArray=np.reshape(transformed_X, (h, w, numBands)) 
-    
+    mnfArray=np.reshape(transformed_X, (h, w, numBands))
+
     if check==True:
         plotCheckSmile(mnfArray)
     colMean=np.mean(mnfArray[:,:,:],axis=0)
@@ -137,7 +137,7 @@ def smileCorrectionAll(array,degree,check=False):
     bandMean=np.mean(colMean,axis=0)
     x=np.arange(colMean.shape[0])
     coefs,regOut=np.polynomial.polynomial.polyfit(x,colMean,degree,full=True)
-   
+
     coefsStd=np.std(coefs[-1,:])
     coefsMean=np.mean(coefs[-1,:])
     b=np.argwhere(np.abs(coefs[-1,:])>coefsMean+3*coefsStd).squeeze()
@@ -178,7 +178,7 @@ def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
     lmedmik=median_filter(mik,footprint=np.ones((ngbrh,1)),mode='reflect')
     lmedsik=median_filter(sik,footprint=np.ones((ngbrh,1)),mode='reflect')
     test=np.abs(mik-lmedmik)/lmedsik
-  
+
     outlier=np.zeros(test.shape,dtype=bool)
     outlier[(test-np.nanmin(test,axis=0))>=thres]=True
     return outlier
@@ -224,13 +224,13 @@ def destriping_local(array,ncs):
         Icorr_diff=array[:,:,b]-Icorr_mean
         bad_pixels=np.zeros(array[:,:,b].shape)
         bad_pixels[Icorr_diff>Icorr_std]=1
-        
+
         bad_columns=uniform_filter(bad_pixels,size=(size,1))
-   
+
         idx=np.nonzero(bad_columns>0.9) #get faulty columns's centers
         idx0=idx[0]
         idx1=idx[1]
-        tmp=np.arange(-(size-1)/2,(size-1)/2+1) #get surrounding pixels of the column 
+        tmp=np.arange(-(size-1)/2,(size-1)/2+1) #get surrounding pixels of the column
         tmp=np.tile(tmp,len(idx0))
         idx0=np.repeat(idx0,size)
         idx1=np.repeat(idx1,size)
@@ -283,7 +283,7 @@ def alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb,plot=False,draw=False):
     return VNIR,SWIR
 
 def concatenateImages(VNIR,VNIRb,VNIRfwhm,SWIR,SWIRb,SWIRfwhm):
-    #reassembles VNIR and SWIR 
+    #reassembles VNIR and SWIR
     imout=np.concatenate((VNIR,SWIR),axis=2)
     wavelengths=np.concatenate((VNIRb,SWIRb))
     fwhms=np.concatenate((VNIRfwhm,SWIRfwhm))
@@ -303,8 +303,8 @@ def georeferencing(imgL1R,pathToGeoreferencedImage,fname):
         arrayL1RGeoreferenced,h,srcPoints,dstPoints=alignImages(imgL1R,arrayL1Georeferenced,bandIm1=33,bandIm2=40)
     except:
         print('could not align the images')
-        raise    
-    return arrayL1RGeoreferenced, imgL1Georeferenced.meta  
+        raise
+    return arrayL1RGeoreferenced, imgL1Georeferenced.meta
 
 def alignImages(im1, im2,MAX_FEATURES=10000,GOOD_MATCH_PERCENT=0.25,bandIm1=33,bandIm2=40):
     # Convert images to grayscale
@@ -351,12 +351,12 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     #conversion to FLAASH units
     #L1R product in W/(m2 um sr) after scaling
     #FLAASH requires uW/(cm2 nm sr)
-    arrayL1RGeoreferenced*=0.1 
+    arrayL1RGeoreferenced*=0.1
     arrayL1RGeoreferenced[np.isnan(arrayL1RGeoreferenced)]=0
     #save image as ENVI file for FLAASH
     arrayL1RGeoreferenced*=scaleFactor
-    arrayL1RGeoreferenced[arrayL1RGeoreferenced<0]=0 
-    arrayL1RGeoreferenced[arrayL1RGeoreferenced>1e7]=1e7 
+    arrayL1RGeoreferenced[arrayL1RGeoreferenced<0]=0
+    arrayL1RGeoreferenced[arrayL1RGeoreferenced>1e7]=1e7
     arrayL1RGeoreferenced=arrayL1RGeoreferenced.astype(rasterio.uint16)
     arrayL1RGeoreferenced=np.moveaxis(arrayL1RGeoreferenced,2,0)
     kwargs.update({
@@ -369,7 +369,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
         'tiled': True,
         'compress': 'lzw',
         'predictor': 2
-    })   
+    })
 
     with rasterio.open(pathOut+fname+'_L1R_complete_tmp','w',**kwargs) as out:
         out.write(arrayL1RGeoreferenced[0,:,:],1)
@@ -378,10 +378,10 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     arrayL1RGeoreferenced=np.moveaxis(arrayL1RGeoreferenced,0,2)
     bandNames=np.asarray(metadataL1R['band names'].copy())[np.r_[7:56,77:223]]
     sunZenith,sunAzimuth,satelliteZenith,satelliteAzimuth,centerLon,centerLat,acquisitionDate,acquisitionTimeStart,acquisitionTimeStop,ID=getAcquisitionsProperties(pathToL1Rmetadata,fname)
-   
+
     UL_lat, UL_lon, UR_lat, UR_lon, LL_lat, LL_lon, LR_lat, LR_lon=getImageCorners(pathToL1Rimages,fname)
 
-    img=envi.open(pathOut+fname+'_L1R_complete_tmp.hdr',pathOut+fname+'_L1R_complete_tmp') 
+    img=envi.open(pathOut+fname+'_L1R_complete_tmp.hdr',pathOut+fname+'_L1R_complete_tmp')
     metadata=img.metadata.copy()
     metadata['data type']= rasterio.uint16
     metadata['interleave']='bip'
@@ -408,8 +408,8 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
+    envi.save_image(pathOut+fname+'_L1R_complete.hdr',img[:,:,:],metadata=metadata,force=True)
 
-    envi.save_image(pathOut+fname+'_L1R_complete.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,dtype=rasterio.uint16,force=True,interleave='bip')
 
 def plotCheckSmile(mnfArray):
     fig,ax=plt.subplots(2,5)

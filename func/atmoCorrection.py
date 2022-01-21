@@ -2,10 +2,16 @@ import matplotlib.pyplot as plt
 import spectral.io.envi as envi
 import numpy as np
 import ee
+import geetools
 import os
-from scipy.signal import savgol_filter 
-from scipy.ndimage.filters import gaussian_filter
+from scipy.signal import savgol_filter
+from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy import interpolate
+from interp3d import interp_3d
+import rasterio
+from rasterio.warp import calculate_default_transform, reproject, Resampling
+import richdem as rd
+from tqdm.auto import tqdm
 
 import various
 
@@ -129,7 +135,7 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
         ZONE=ZONE
     else:
         ZONE+=1
-    ZONE=int(np.sign(LONGIT)*ZONE)  
+    ZONE=int(np.sign(LONGIT)*ZONE)
     HOUR=float(HOUR)+ZONE
     HOUR=str(HOUR)
     ZONE=str(ZONE)
@@ -145,14 +151,14 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     import os
     import pandas as pd
     import subprocess
-    
+
     # Check if SMARTSPATH environment variable exists and change working
     # directory if it does.
     original_wd = None
     if 'SMARTSPATH' in os.environ:
         original_wd = os.getcwd()
         os.chdir(os.environ['SMARTSPATH'])
-    
+
     try:
         os.remove('smarts298.inp.txt')
     except:
@@ -160,8 +166,8 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     try:
         os.remove('smarts298.out.txt')
     except:
-        pass  
-    try:       
+        pass
+    try:
         os.remove('smarts298.ext.txt')
     except:
         pass
@@ -169,22 +175,22 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         os.remove('smarts298.scn.txt')
     except:
         pass
-        
+
     f = open('smarts298.inp.txt', 'w')
-    
+
     IOTOT = len(IOUT.split())
-    
+
     ## Card 1: Comment.
     if len(CMNT)>62:
-        CMNT = CMNT[0:61] 
+        CMNT = CMNT[0:61]
 
     CMNT = CMNT.replace(" ", "_")
     CMNT = "'"+CMNT+"'"
     print('{}' . format(CMNT), file=f)
-    
+
     ## Card 2: Site Pressure
     print('{}'.format(ISPR), file=f)
-    
+
     ##Card 2a:
     if ISPR=='0':
        # case '0' #Just input pressure.
@@ -196,23 +202,23 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         #case '2' #Input lat, alt and height
         print('{} {} {}'.format(LATIT, ALTIT, HEIGHT), file=f)
     else:
-        print("ISPR Error. ISPR should be 0, 1 or 2. Currently ISPR = ", ISPR)    
-    
+        print("ISPR Error. ISPR should be 0, 1 or 2. Currently ISPR = ", ISPR)
+
     ## Card 3: Atmosphere model
     print('{}'.format(IATMOS), file=f)
-    
+
     ## Card 3a:
     if IATMOS=='0':
         #case '0' #Input TAIR, RH, SEASON, TDAY
         print('{} {} {} {}'.format(TAIR, RH, SEASON, TDAY), file=f)
-    elif IATMOS=='1':        
+    elif IATMOS=='1':
         #case '1' #Input reference atmosphere
         ATMOS = "'"+ATMOS+"'"
         print('{}'.format(ATMOS), file=f)
-    
+
     ## Card 4: Water vapor data
     print('{}'.format(IH2O), file=f)
-    
+
     ## Card 4a
     if IH2O=='0':
         #case '0'
@@ -221,29 +227,29 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         #case '1'
         #The subcard 4a is skipped
         pass  #      print("")
-    
+
     ## Card 5: Ozone abundance
     print('{}'.format(IO3), file=f)
-    
+
     ## Card 5a
     if IO3=='0':
         #case '0'
         print('{} {}'.format(IALT, AbO3), file=f)
     elif IO3=='1':
         #case '1'
-        #The subcard 5a is skipped and default values are used from selected 
-        #reference atmosphere in Card 3. 
+        #The subcard 5a is skipped and default values are used from selected
+        #reference atmosphere in Card 3.
         pass #      print("")
-    
+
     ## Card 6: Gaseous absorption and atmospheric pollution
     print('{}'.format(IGAS), file=f)
-    
+
     ## Card 6a:  Option for tropospheric pollution
     if IGAS=='0':
         # case '0'
         print('{}'.format(ILOAD), file=f)
 
-        ## Card 6b: Concentration of Pollutants        
+        ## Card 6b: Concentration of Pollutants
         if ILOAD=='0':
             #case '0'
             print('{} {} {} {} {} {} {} {} {} {} '.format(ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO, ApNO2, ApNO3, ApO3, ApSO2), file=f)
@@ -255,37 +261,37 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         elif ILOAD=='2' or ILOAD =='3' or ILOAD == '4':
             #case {'2', '3', '4'}
             #The subcard 6b is skipped and value of ILOAD will be used
-            #as LIGHT POLLUTION (ILOAD = 2), MODERATE POLLUTION (ILOAD = 3), 
+            #as LIGHT POLLUTION (ILOAD = 2), MODERATE POLLUTION (ILOAD = 3),
             #and SEVERE POLLUTION (ILOAD = 4).
             pass #     print("")
-             
+
     elif IGAS=='1':
         #case '1'
         #The subcard 6a is skipped, and values are for default average
         #profiles.
         print("")
-    
+
     ## Card 7:  CO2 columnar volumetric concentration (ppmv)
     print('{}'.format(qCO2), file=f)
-    
+
     ## Card 7a: Option of proper extraterrestrial spectrum
     print('{}'.format(ISPCTR), file=f)
-    
+
     ## Card 8: Aerosol model selection out of twelve
     AEROS = "'"+AEROS+"'"
 
     print('{}'.format(AEROS), file=f)
-    
+
     ## Card 8a: If the aerosol model is 'USER' for user supplied information
     if AEROS=="'USER'":
         print('{} {} {} {}'.format(ALPHA1, ALPHA2, OMEGL, GG), file=f)
     else:
         #The subcard 8a is skipped
         pass #     print("")
-    
+
     ## Card 9: Option to select turbidity model
     print('{}'.format(ITURB), file=f)
-    
+
     ## Card 9a
     if ITURB=='0':
         #case '0'
@@ -307,44 +313,44 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         print('{}'.format(TAU550), file=f)
     else:
         print("Error: Card 9 needs to be input. Assign a valid value to ITURB = ", ITURB)
-    
+
     ## Card 10:  Select zonal albedo
     print('{}'.format(IALBDX), file=f)
-    
+
     ## Card 10a: Input fix broadband lambertial albedo RHOX
     if IALBDX == '-1':
         print('{}'.format(RHOX), file=f)
     else:
         pass #     print("")
         #The subcard 10a is skipped.
-    
+
     ## Card 10b: Tilted surface calculation flag
     print('{}'.format(ITILT), file=f)
-    
+
     ## Card 10c: Tilt surface calculation parameters
     if ITILT == '1':
         print('{} {} {}'.format(IALBDG, TILT, WAZIM), file=f)
-        
+
         ##Card 10d: If tilt calculations are performed and zonal albedo of
         ##foreground.
-        if IALBDG == '-1': 
+        if IALBDG == '-1':
             print('{}'.format(RHOG), file=f)
         else:
             pass #     print("")
-            #The subcard is skipped 
-    
-    
+            #The subcard is skipped
+
+
     ## Card 11: Spectral ranges for calculations
     print('{} {} {} {}'.format(WLMN, WLMX, SUNCOR, SOLARC), file=f)
-    
+
     ## Card 12: Output selection.
     print('{}'.format(IPRT), file=f)
-    
-    ## Card 12a: For spectral results (IPRT >= 1) 
+
+    ## Card 12a: For spectral results (IPRT >= 1)
     if float(IPRT) >= 1:
         print('{} {} {}'.format(WPMN, WPMX, INTVL), file=f)
-        
-        ## Card 12b & Card 12c: 
+
+        ## Card 12b & Card 12c:
         if float(IPRT) == 2 or float(IPRT) == 3:
             print('{}'.format(IOTOT), file=f)
             print('{}'.format(IOUT), file=f)
@@ -354,10 +360,10 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     else:
         pass #     print("")
         #The subcard 12a is skipped
-    
+
     ## Card 13: Circumsolar calculations
     print('{}'.format(ICIRC), file=f)
-    
+
     ## Card 13a:  Simulated radiometer parameters
     if ICIRC == '1':
         print('{} {} {}'.format(SLOPE, APERT, LIMIT), file=f)
@@ -366,26 +372,26 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         #The subcard 13a is skipped since no circumsolar calculations or
         #simulated radiometers have been requested.
 
-    
+
     ## Card 14:  Scanning/Smoothing virtual filter postprocessor
     print('{}'.format(ISCAN), file=f)
-    
+
     ## Card 14a:  Simulated radiometer parameters
-    if ISCAN == '1': 
+    if ISCAN == '1':
         print('{} {} {} {} {}'.format(IFILT, WV1, WV2, STEP, FWHM), file=f)
     else:
         pass #     print("")
-        #The subcard 14a is skipped since no postprocessing is simulated.    
-    
+        #The subcard 14a is skipped since no postprocessing is simulated.
+
     ## Card 15: Illuminace, luminous efficacy and photosythetically active radiarion calculations
     print('{}'.format(ILLUM), file=f)
-    
+
     ## Card 16: Special broadband UV calculations
     print('{}'.format(IUV), file=f)
-    
+
     ## Card 17:  Option for solar position and air mass calculations
     print('{}'.format(IMASS), file=f)
-    
+
     ## Card 17a: Solar position parameters:
     if IMASS=='0':
         #case '0' #Enter Zenith and Azimuth of the sun
@@ -402,11 +408,11 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     elif IMASS=='4':
         #case '4' #Enter date and time and step in min for a daily calculation.
         print('{}, {}, {}'.format(MONTH, LATIT, DSTEP), file=f)
-    
+
     ## Input Finalization
     print('', file=f)
     f.close()
-    
+
     ## Run SMARTS 2.9.5
     #dump = os.system('smarts295bat.exe')
     commands = ['smarts2981_PC_64bit.exe']
@@ -422,28 +428,28 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     else:
         p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=open("output.txt", "w"), shell=True)
         p.wait()
-        
+
         ## Read SMARTS 2.9.5 Output File
-        data = pd.read_csv('smarts298.ext.txt', delim_whitespace=True)    
+        data = pd.read_csv('smarts298.ext.txt', delim_whitespace=True)
 
     try:
         os.remove('smarts298.inp.txt')
     except:
-        pass #     print("") 
+        pass #     print("")
     #try:
     #    os.remove('smarts298.out.txt')
     #except:
-    #    pass #     print("")     
-    try:       
+    #    pass #     print("")
+    try:
         os.remove('smarts298.ext.txt')
     except:
-        pass #     print("") 
+        pass #     print("")
     try:
         os.remove('smarts298.scn.txt')
     except:
-        pass #     print("") 
-    
-    # Return to original working directory.    
+        pass #     print("")
+
+    # Return to original working directory.
     if original_wd:
         os.chdir(original_wd)
 
@@ -452,14 +458,14 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     return data
 
 def getGEEdate(datestamp1,year,doy,longit,latit):
-    numPixels=1 
-    
+    numPixels=1
+
     WTR = ee.ImageCollection('NCEP_RE/surface_wv') #kg/m2
     WTR=WTR.select('pr_wtr').filterDate(datestamp1+'T17:30',datestamp1+'T18:30')
     coord=ee.Geometry.Point(longit,latit)
     wv=WTR.first().sample(region=coord,numPixels=numPixels).getInfo()['features'][0]['properties']['pr_wtr']#.get('air').getInfo()
     wv=wv*1E-1 #g.cm-2
-    
+
     year=int(year)
     doy=int(doy)
     i=1
@@ -474,8 +480,8 @@ def getGEEdate(datestamp1,year,doy,longit,latit):
         except:
             i+=1
     o3=o3*1E-3 # atm-cm
-    
-    return wv, o3 
+
+    return wv, o3
 
 def getImageAndParameters(path):
     img=envi.open(path+'.hdr',path+'.img') #img in uW.cm-2.nm-1.sr-1, with a scaleFactor
@@ -489,8 +495,9 @@ def getImageAndParameters(path):
     zenith=float(img.metadata['sun zenith'])
     azimuth=float(img.metadata['sun azimuth'])
     satelliteZenith=float(img.metadata['satellite zenith'])
+    satelliteAzimuth=float(img.metadata['satellite azimuth'])-90
     scaleFactor=float(img.metadata['scale factor'])
-   
+
     UL_lat=float(img.metadata['ul_lat'])
     UL_lon=float(img.metadata['ul_lon'])
     UR_lat=float(img.metadata['ur_lat'])
@@ -505,15 +512,15 @@ def getImageAndParameters(path):
     day=datestamp1[8:]
     hour=datestamp2[9:11]
     minute=datestamp2[12:14]
-    doy=datestamp2[5:8]   
+    doy=datestamp2[5:8]
 
     thetaZ=zenith*np.pi/180
     thetaV=satelliteZenith*np.pi/180
 
     metadata=img.metadata.copy()
-    
-    L=img[:,:,:]/scaleFactor #image in uW.cm-2.nm-1.sr-1 with scalefactor 
-    return L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata
+
+    L=img[:,:,:]/scaleFactor #image in uW.cm-2.nm-1.sr-1 with scalefactor
+    return L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,satelliteAzimuth,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata
 
 def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon):
     dem = ee.Image('USGS/SRTMGL1_003');
@@ -551,12 +558,12 @@ def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,theta
         Lout=T_gs*(T*E+Dft)*5
         Lout[W<=1700]=gaussian_filter(Lout[W<=1700],various.fwhm2sigma(10))
         Lout[W>1700]=gaussian_filter(Lout[W>1700],various.fwhm2sigma(2))
-  
+
         lShoulder940=np.mean(Lout[np.logical_and(W>=l940[0],W<=l940[1])])
         rShoulder940=np.mean(Lout[np.logical_and(W>=r940[0],W<=r940[1])])
         btm940=Lout[np.argmin(np.abs(W-940))]
         ratios940.append(btm940/np.mean([lShoulder940,rShoulder940]))
-  
+
         lShoulder1120=np.mean(Lout[np.logical_and(W>=l1120[0],W<=l1120[1])])
         rShoulder1120=np.mean(Lout[np.logical_and(W>=r1120[0],W<=r1120[1])])
         btm1120=Lout[np.argmin(np.abs(W-1120))]
@@ -572,7 +579,7 @@ def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,theta
     rShoulder940=np.mean(L[np.logical_and(bands>=r940[0],bands<=r940[1])])
     btm940=L[np.argmin(np.abs(bands-940))]
     ratio940=btm940/np.mean([lShoulder940,rShoulder940])
-  
+
     lShoulder1120=np.mean(L[np.logical_and(bands>=l1120[0],bands<=l1120[1])])
     rShoulder1120=np.mean(L[np.logical_and(bands>=r1120[0],bands<=r1120[1])])
     btm1120=L[np.argmin(np.abs(bands-1120))]
@@ -598,13 +605,13 @@ def darkObjectDehazing(L,bands):
     Lhaze=(bands*1E-3)**c
     offset=deepB-Lhaze[np.argmin(np.abs(bands-bref))]
     Lhaze+=offset
-    
+
     while (np.amin(DOBJ[np.logical_and(bands_dobj>bref,bands<1500)]-Lhaze[np.logical_and(bands_dobj>bref,bands<1500)])<0) or (Lhaze[np.argmin(np.abs(bands-2150))]>0.05):
         c-=0.001
         Lhaze=(bands*1E-3)**c
         offset=deepB-Lhaze[np.argmin(np.abs(bands-bref))]
         Lhaze+=offset
-    Lhaze[Lhaze<0]=0    
+    Lhaze[Lhaze<0]=0
     L=L-Lhaze
     L[L<=0]=0
     return L,Lhaze,DOBJ,bands_dobj
@@ -622,7 +629,7 @@ def smoothing(R,width=3,order=1,processO2=False,bands=None):
         f=interp1d(bands[argb==1],Rtmp[...,argb==1], kind='cubic')
         Rtmp[:,:,argb]=f(Rtmp[...,argb==1])
         R[R[:,:,0]>0,:]=Rtmp
-        
+
     return savgol_filter(R,width,order)
 
 def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
@@ -636,17 +643,17 @@ def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
     Dft=df['Total_Diffuse_tilt_irrad']
     Dgt=df['Global_tilted_irradiance']
 
-    factor=np.pi/T_gs/(T*np.cos(thetaZ)*E+Dft)
+    factor=np.pi/T_gs/Dgt
     factor[W<=1700]=gaussian_filter(factor[W<=1700],various.fwhm2sigma(10))
     factor[W>1700]=gaussian_filter(factor[W>1700],various.fwhm2sigma(2))
-    
+
     return factor,W,E,Dtt,Dft,T,T_gs
 
 def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,thetaZ,imass=3,io3=0,ialt=0,o3=3):
     #obtain some atmospheric parameters using GEE
     print('get water vapor and ozone from GEE')
     wvGEE,o3=getGEEdate(datestamp1,year,doy,longit,latit)
-         
+
     print('get water vapor from the radiance image')
     wv=getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,int(hour)+int(minute)/60,doy,thetaV,thetaZ,io3,ialt,o3)
 
@@ -660,17 +667,17 @@ def computeLtoE(L,bands,df,df_gs,thetaV,thetaZ):
     fun=interpolate.interp1d(W,factor)
     factor=fun(bands)
     R=factor*L
-    return R   
+    return R
 
-def saveRimage(R,bands,metadata,pathOut,fname,scaleFactor=1e5):
+def saveRimage(R,bands,metadata,pathOut,scaleFactor=1e5):
     scale=1E4*np.ones(bands.shape)
     metadata['scale factor']=scale.tolist()
     R=np.round(R*scaleFactor,0).astype(int)
     R[R>1e7]=1e7
     R[R<0]=0
-    envi.save_image(pathOut+fname+'_Reflectance.hdr',R,metadata=metadata,force=True)     
+    envi.save_image(pathOut+fname+'_Reflectance.hdr',R,metadata=metadata,force=True)
 
-def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):  
+def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
     #compute TOA reflectance
     df=runSMARTS(ALTIT=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=0,IO3=0,IALT=0,AbO3=0)
     W=df['Wvlgth'].values
@@ -693,7 +700,7 @@ def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
     Rcirrus=R[:,:,np.argmin(np.abs(bands-1380))]
     r1380=Rcirrus[Rcirrus>0]
     rlambda=R[Rcirrus>0,:]
-        
+
     xs=[]
     ys=[]
     for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.5):
@@ -718,14 +725,191 @@ def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
         try:
             ys_trim=ys_trim[1:]
             xs_trim=xs_trim[1:]
-            p=np.polyfit(xs_trim,ys_trim,1) 
+            p=np.polyfit(xs_trim,ys_trim,1)
             Ka.append(p[0])
         except:
             Ka.append(1e10)
     Ka=np.asarray(Ka)
     Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
     Rcorr=R-Rcirrus/Ka
-    
+
     Lcorr=Rcorr/factor
     Lcorr[L<=0]=0
     return Lcorr
+    envi.save_image(pathOut+'.hdr',R,metadata=metadata)
+
+def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
+    elev = ee.Image('USGS/SRTMGL1_003');
+    elev=elev.select('elevation')
+    #slope=ee.Terrain.slope(elev)
+    #aspect=ee.Terrain.aspect(elev)
+
+    region=ee.Geometry.Polygon([[[UL_lon-0.05,UL_lat+0.05],[UR_lon+0.05,UR_lat+0.05],[LR_lon+0.05,LR_lat-0.05],[LL_lon-0.05,LL_lat-0.05]]],None,False)
+
+    elev=elev.clip(region)
+    geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
+    #geetools.batch.image.toLocal(slope,'slope',scale=30,region=region)
+    #geetools.batch.image.toLocal(aspect,'aspect',scale=30,region=region)
+
+    for f in os.listdir('.'):
+        if '.zip' in f:
+            os.remove(os.path.join('.',f))
+
+
+def reprojectImage(im,dst_crs,pathOut):
+    with im as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, dst_crs, src.width, src.height, *src.bounds)
+        kwargs = src.meta.copy()
+        kwargs.update({
+            'crs': dst_crs,
+            'transform': transform,
+            'width': width,
+            'height': height,
+            'count': 1
+        })
+
+        with rasterio.open(pathOut, 'w', **kwargs) as dst:
+            reproject(
+                source=rasterio.band(src, 1),
+                destination=rasterio.band(dst, 1),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=dst_crs,
+                resampling=Resampling.nearest,
+                num_threads=10,
+                warp_mem_limit=1024)
+        dst.close()
+
+def get_target_rows_cols(T0,array1,imSecondary):
+    # All rows and columns
+    cols, rows = np.meshgrid(np.arange(array1.shape[1]), np.arange(array1.shape[0]))
+
+    cols=cols[array1[:,:,40]>=0]
+    rows=rows[array1[:,:,40]>=0]
+    xs,ys=rasterio.transform.xy(T0,rows,cols)
+
+    #get coordinates row/cols in the landcover map
+    rowsSecondary, colsSecondary = rasterio.transform.rowcol(imSecondary.transform, xs,ys)
+
+    rowsSecondary=np.asarray(rowsSecondary)
+    colsSecondary=np.asarray(colsSecondary)
+    return rows,cols,rowsSecondary, colsSecondary
+
+def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
+    #remove OOB values
+    rows=rows[rowsSecondary>0]
+    cols=cols[rowsSecondary>0]
+    colsSecondary=colsSecondary[rowsSecondary>0]
+    rowsSecondary=rowsSecondary[rowsSecondary>0]
+    rows=rows[colsSecondary>0]
+    cols=cols[colsSecondary>0]
+    rowsSecondary=rowsSecondary[colsSecondary>0]
+    colsSecondary=colsSecondary[colsSecondary>0]
+    rows=rows[rowsSecondary<array2.shape[0]]
+    cols=cols[rowsSecondary<array2.shape[0]]
+    colsSecondary=colsSecondary[rowsSecondary<array2.shape[0]]
+    rowsSecondary=rowsSecondary[rowsSecondary<array2.shape[0]]
+    rows=rows[colsSecondary<array2.shape[1]]
+    rowsSecondary=rowsSecondary[colsSecondary<array2.shape[1]]
+    cols=cols[colsSecondary<array2.shape[1]]
+    colsSecondary=colsSecondary[colsSecondary<array2.shape[1]]
+
+    arraySecondaryNew=np.zeros((array1.shape[0],array1.shape[1]))
+    arraySecondaryNew[rows,cols]=array2[rowsSecondary,colsSecondary].copy()
+    arraySecondaryNew=np.reshape(arraySecondaryNew,(array1.shape[0],array1.shape[1]))
+    return arraySecondaryNew
+
+def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,IH2O,WV,IO3,IALT,AbO3,year,month,day,hour,doy,thetaZ,satelliteZenith,satelliteAzimuth,L,bands):
+
+    #prepare the iteration vectors for the LUT building
+    ALTITS=np.arange(np.floor(np.nanmin(altitMap)),np.maximum(np.ceil(np.nanmax(altitMap))+stepAltit,np.floor(np.nanmin(altitMap))+2*stepAltit),stepAltit)
+    TILTS=np.arange(np.floor(np.nanmin(tiltMap)),np.maximum(np.ceil(np.nanmax(tiltMap))+stepTilt,np.floor(np.nanmin(tiltMap))+2*stepTilt),stepTilt) #decimal degree
+    WAZIMS=np.arange(np.floor(np.nanmin(wazimMap)),np.maximum(np.ceil(np.nanmax(wazimMap))+stepWazim,np.floor(np.nanmin(wazimMap))+stepWazim),stepWazim)
+
+    #first dry run to get W
+    df=runSMARTS(ALTIT=0,ITILT='1',TILT=0,WAZIM=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy))
+    W=df['Wvlgth'].values
+
+    points = (ALTITS, TILTS, WAZIMS)
+    xv,yv,zv=np.meshgrid(*points,indexing='ij')
+    data=np.zeros((xv.shape[0],xv.shape[1],xv.shape[2],len(W)))
+
+    print(np.unique(ALTITS))
+    print(np.unique(TILTS))
+    print(np.unique(WAZIMS))
+
+    for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
+        for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
+            for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
+                df=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
+                df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=satelliteZenith,AZIM=satelliteAzimuth,IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
+
+                Dgt=df['Global_tilted_irradiance']
+                T_gs=df_gs['Direct_rad_transmittance']
+                tmp=np.pi/T_gs/(Dgt)
+                tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],various.fwhm2sigma(10))
+                tmp[W>1700]=gaussian_filter1d(tmp[W>1700],various.fwhm2sigma(2))
+                data[i,j,k,:]=tmp
+    W=df['Wvlgth'].values
+
+    #interpFunction = interpolate.RegularGridInterpolator((ALTITS, TILTS, WAZIMS), data)
+    interpFunction = interp_3d.Interp3D(data,ALTITS,TILTS,WAZIMS)
+
+    data=None
+
+    L[L<0]=0
+    L[np.isnan(L)]=0
+    idx=np.argwhere(L[:,:,40].flatten()>0).squeeze()
+
+    R=np.zeros((L.shape[0]*L.shape[1],L.shape[2])).squeeze()
+    Lflat=L.reshape((L.shape[0]*L.shape[1],L.shape[2]))
+    for idxx in np.array_split(idx,100):
+        values=np.stack((altitMap.flatten()[idxx],tiltMap.flatten()[idxx],wazimMap.flatten()[idxx]),axis=-1)
+        M=interpFunction(values)
+        f=interpolate.interp1d(W,M)
+        R[idxx,:]=f(bands)*Lflat[idxx,:]
+    R=R.reshape(L.shape)
+    return R
+
+def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif'):#,path_slope='./slope/download.slope.tif',path_aspect='./aspect/download.aspect.tif',path_slope_out='./slope/tmp.tif',path_aspect_out='./aspect/tmp.tif'):
+    im1=rasterio.open(path_im1)
+
+    im2=rasterio.open(path_elev)
+    reprojectImage(im2,im1.profile['crs'],path_elev_out)
+    #im2=rasterio.open(path_slope)
+    #reprojectImage(im2,im1.profile['crs'],path_slope_out)
+    #im2=rasterio.open(path_aspect)
+    #reprojectImage(im2,im1.profile['crs'],path_aspect_out)
+
+
+
+def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):#,path_slope='./slope/tmp.tif',path_aspect='./aspect/tmp.tif'):
+    im1=rasterio.open(pathToIm1)
+    im1_transform=im1.transform
+    ar1=im1.read()
+    ar1=np.moveaxis(ar1,0,2)
+    rows1,cols1,rows2, cols2=get_target_rows_cols(im1_transform,ar1,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
+    elev=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_elev).read()),rows1,cols1,rows2, cols2)
+    elev[ar1[:,:,40]<=0]=np.nan
+    elev=elev*1e-3
+    #slope=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_slope).read()),rows1,cols1,rows2, cols2)
+    #slope[ar1[:,:,40]<=0]=np.nan
+    #wazim=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_aspect).read()),rows1,cols1,rows2, cols2)
+    #wazim[ar1[:,:,40]<=0]=np.nan
+
+    slope=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='slope_degrees')
+    slope=extractSecondaryData(ar1,slope,rows1,cols1,rows2, cols2)
+    slope[ar1[:,:,40]<=0]=np.nan
+
+    wazim=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='aspect')
+    wazim=extractSecondaryData(ar1,wazim,rows1,cols1,rows2, cols2)
+    wazim[ar1[:,:,40]<=0]=np.nan
+
+    fig,ax=plt.subplots(1,3)
+    ax[0].imshow(elev)
+    ax[1].imshow(slope)
+    ax[2].imshow(wazim)
+
+    return elev, slope, wazim
