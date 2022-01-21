@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.ndimage.filters import uniform_filter
+
 
 def getRed(R,W):
     redb=[640,680]
@@ -90,3 +92,13 @@ def sigma2fwhm(sigma):
 
 def fwhm2sigma(fwhm):
     return fwhm / np.sqrt(8 * np.log(2))
+
+def is_odd(num):
+    return num & 0x1
+
+def window_stdev(X, window_size):
+    r,c=X.shape
+    X+=np.random.rand(r,c)*1e-6 #avoids errors when c2-c1*c1 is too small and sqrt returns a nan by eliminating these small numbers
+    c1 = uniform_filter(X, window_size, mode='reflect')
+    c2 = uniform_filter(X*X, window_size, mode='reflect')
+    return np.sqrt(c2 - c1*c1)

@@ -8,11 +8,12 @@ import cv2
 from pathlib import Path
 from zipfile import ZipFile
 from pyhdf.SD import SD, SDC
-from scipy.ndimage.filters import median_filter,uniform_filter1d
-from scipy.signal import savgol_filter
+from scipy.ndimage.filters import median_filter,uniform_filter1d, uniform_filter
+from scipy.signal import savgol_filter, find_peaks
 from sklearn.decomposition import PCA
 import spectral.io.envi as envi
-import spectral
+
+import various
 
 def processImage(fname,pathToImages,pathToImagesFiltered):
     #compiles all TIF bands of the Hyperion image fname into a single TIF image
@@ -178,14 +179,6 @@ def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
     lmedsik=median_filter(sik,footprint=np.ones((ngbrh,1)),mode='reflect')
     test=np.abs(mik-lmedmik)/lmedsik
   
-    #print(lmedsik)
-    #print(lmedmik)
-    #print(lmedmik.shape)
-    #print(test.shape)
-    #fig,ax=plt.subplots()
-    #ax.plot(test[:,45])
-    #plt.show()
-
     outlier=np.zeros(test.shape,dtype=bool)
     outlier[(test-np.nanmin(test,axis=0))>=thres]=True
     return outlier
@@ -201,6 +194,55 @@ def localDestriping3D(img,mik,sik,ngbrh,outlier):
     img[outlier==True]=tmp[outlier==True]
     img[img<=0]=np.nan
     return img
+
+
+
+def destriping_quadratic(array):
+    #based on a method by Pal et al. (2020)
+    Pca=np.nanmedian(array,axis=0)
+    Pfit=[]
+    ncs=[]
+    for b in np.arange(Pca.shape[1]):
+        peaks,_=find_peaks(Pca[:,b])
+        nc=np.amax(np.diff(peaks))
+        ncs.append(nc)
+        Pfit.append(savgol_filter(Pca[:,b],10*nc+1,2))
+    Pfit=np.asarray(Pfit).T
+    diff=Pfit-Pca
+    diff=np.tile(diff,(array.shape[0],1,1))
+    return array+diff, ncs
+
+def destriping_local(array,ncs):
+    #based on a method by Pal et al. (2020)
+    for b in np.arange(array.shape[2]):
+        size=3*ncs[b]
+        if not various.is_odd(size):
+            size+=1
+
+        Icorr_mean=uniform_filter(array[:,:,b],size=(size,size))
+        Icorr_std=various.window_stdev(array[:,:,b],(size,size))
+        Icorr_diff=array[:,:,b]-Icorr_mean
+        bad_pixels=np.zeros(array[:,:,b].shape)
+        bad_pixels[Icorr_diff>Icorr_std]=1
+        
+        bad_columns=uniform_filter(bad_pixels,size=(size,1))
+   
+        idx=np.nonzero(bad_columns>0.9) #get faulty columns's centers
+        idx0=idx[0]
+        idx1=idx[1]
+        tmp=np.arange(-(size-1)/2,(size-1)/2+1) #get surrounding pixels of the column 
+        tmp=np.tile(tmp,len(idx0))
+        idx0=np.repeat(idx0,size)
+        idx1=np.repeat(idx1,size)
+        idx0=idx0+tmp
+        idx1=idx1[idx0>=0]
+        idx0=idx0[idx0>=0]
+        idx1=idx1[idx0<array.shape[0]]
+        idx0=idx0[idx0<array.shape[0]]
+        idx0=idx0.astype(int)
+        array[idx0,idx1,b]=Icorr_mean[idx0,idx1]
+    return array
+
 
 def alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb,plot=False,draw=False):
     #second step of the alignment of VNIR and SWIR: instead of a set rotation, looks for matching features in the images and apply an homography on the SWIR so that SWIR and VNIR are aligned
@@ -299,7 +341,13 @@ def alignImages(im1, im2,MAX_FEATURES=10000,GOOD_MATCH_PERCENT=0.25,bandIm1=33,b
     verif=printIm1Reg+printIm2Gray
     return im1Reg, h, points1, points2
 
+def smoothCirrusBand(array,bands,npass=2,size=5):
+    for p in np.arange(npass):
+        array[:,:,np.argmin(np.abs(bands-1380))]=median_filter(array[:,:,np.argmin(np.abs(bands-1380))],size=size)
+    return array
+
 def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1Rimages,pathToL1Rmetadata,metadataL1R,fname,pathOut,scaleFactor=1e3):
+    #did not find a way to directly save the ENVI file with all the desired metadata (georeferencement and image acquisition properties) so first a temporary image is saved with Rasterio to pre-generate part of the header, then it is open and the actual image with complete header is saved using Spectral.io
     #conversion to FLAASH units
     #L1R product in W/(m2 um sr) after scaling
     #FLAASH requires uW/(cm2 nm sr)
@@ -307,6 +355,8 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     arrayL1RGeoreferenced[np.isnan(arrayL1RGeoreferenced)]=0
     #save image as ENVI file for FLAASH
     arrayL1RGeoreferenced*=scaleFactor
+    arrayL1RGeoreferenced[arrayL1RGeoreferenced<0]=0 
+    arrayL1RGeoreferenced[arrayL1RGeoreferenced>1e7]=1e7 
     arrayL1RGeoreferenced=arrayL1RGeoreferenced.astype(rasterio.uint16)
     arrayL1RGeoreferenced=np.moveaxis(arrayL1RGeoreferenced,2,0)
     kwargs.update({
@@ -333,9 +383,6 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
 
     img=envi.open(pathOut+fname+'_L1R_complete_tmp.hdr',pathOut+fname+'_L1R_complete_tmp') 
     metadata=img.metadata.copy()
-    metadata=metadataL1R.copy()
-    metadata.pop('read procedures')
-    metadata.pop('subset procedure')
     metadata['data type']= rasterio.uint16
     metadata['interleave']='bip'
     metadata['wavelength']=wavelengths.tolist()
@@ -361,6 +408,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
+
     envi.save_image(pathOut+fname+'_L1R_complete.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,dtype=rasterio.uint16,force=True,interleave='bip')
 
 def plotCheckSmile(mnfArray):

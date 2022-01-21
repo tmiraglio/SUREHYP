@@ -5,7 +5,7 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 ## Description
 
-`surehyp.py` is a script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
+`surehyp.py` is an example script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
 
 `preprocess.py` contains the various functions called in the preprocessing step, to obtain georeferenced, desmiled, and destriped hyperspectral images.
 
@@ -28,15 +28,20 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 The steps undertaken for the preprocessing of the L1R images are those presented in Thenkabail et al. (2018):
 
-- VNIR and SWIR are treated separately;
+- VNIR and SWIR are treated separately
 - desmiling is done according to the method presented by San and Suzen (2011)
-- destriping is done using the local destriping method described by Datt et al. (2003)
+- two destriping methods are available: 
+    - the local destriping method described by Datt et al. (2003)
+    - quadratic regression using local spatial statistics by Pal et al. (2020)
+- VNIR and SWIR are aligned
 
 The corrected L1R image is then georeferenced using the L1T image, using matching features to apply a homography. The corrected radiance image is then saved as a .bip file.
 
 ### Atmospheric correction
 
-The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. It currently assume a flat surface. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
+A thin cirrus removal method, according to the works of Gao and Li (2017), is available.
+
+The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. It currently assumes a flat surface. The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
 
 <img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}*(L-L_{haze})}{T_{gs}*(E_{sun}*cos\theta_{Z}*T_{sg}+E_{down})}">
 
@@ -49,7 +54,7 @@ Parameters such as ozone concentration, water vapor, or site altitude are extrac
 
 The reflectance image is then saved as a .bip file.
 
-## NREL softwares
+## Third-party softwares
 
 This package uses SMARTS: Simple Model of the Atmospheric Radiative Transfer of Sunshine, and an updated function from the py-SMARTS package.
 
@@ -80,6 +85,10 @@ P. S. Thenkabail, J. G. Lyon, and A. Huete, Advanced Applications in Remote Sens
 B. T. San and M. L. Suzen, "Evaluation of cross-track illumination in EO-1 hyperion imagery for lithological mapping", International Journal of Remote Sensing, vol. 32, no. 22, pp. 7873-7889, 2011, doi: 10.1080/01431161.2010.532175.
 
 B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, "Preprocessing EO-1 Hyperion hyperspectral data to support the application of agricultural indexes", IEEE Transactions on Geoscience and Remote Sensing, vol. 41, no. 6 PART I, pp. 1246-1259, Jun. 2003, doi: 10.1109/TGRS.2003.813206.
+
+M. K. Pal, A. Porwal, T. M. Rasmussen,“Noise reduction and destriping usinglocal spatial statistics and quadratic regression from Hyperion images,”J. Appl. Remote Sens.14(1), 016515 (2020), doi: 10.1117/1.JRS.14.016515
+
+B.C. Gao and R.R. Li, “Removal of thin cirrus scattering effects in Landsat 8 OLI images using the cirrus detecting channel”, Remote Sensing 9, 834, 2017
 
 C. A. Gueymard, "Parameterized transmittance model for direct beam and circumsolar spectral irradiance", Solar Energy, vol. 71, no. 5, pp. 325-346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
 

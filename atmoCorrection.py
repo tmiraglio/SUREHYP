@@ -626,6 +626,7 @@ def smoothing(R,width=3,order=1,processO2=False,bands=None):
     return savgol_filter(R,width,order)
 
 def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
+    #compute the factor to convert TOA radiance to surface reflectance
     W=df['Wvlgth'].values
     E=df['Extraterrestrial_spectrm']
     T=df['RayleighScat_trnsmittnce']*df['Ozone_totl_transmittance']*df['Trace_gas__transmittance']*df['WaterVapor_transmittance']*df['Mixed_gas__transmittance']*df['Aerosol_tot_transmittnce']
@@ -642,6 +643,7 @@ def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
     return factor,W,E,Dtt,Dft,T,T_gs
 
 def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,thetaZ,imass=3,io3=0,ialt=0,o3=3):
+    #obtain some atmospheric parameters using GEE
     print('get water vapor and ozone from GEE')
     wvGEE,o3=getGEEdate(datestamp1,year,doy,longit,latit)
          
@@ -653,6 +655,7 @@ def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,l
     return wv,o3
 
 def computeLtoE(L,bands,df,df_gs,thetaV,thetaZ):
+    #get the factor to convert TOA radiance to surface reflectance and return the reflectance
     factor,W,E,Dtt,Dft,T,T_gs=computeLtoEfactor(df,df_gs,thetaV,thetaZ)
     fun=interpolate.interp1d(W,factor)
     factor=fun(bands)
@@ -681,6 +684,7 @@ def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
 
 def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
     #uses the method presented by Gao et al 1997, 2017 to remove cirrus effects
+    #compute TOA reflectance, performs the cirrus removal, and retransforms to TOA radiance
     #returns the cirrus-removed TOA radiance
     factor=getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV)
     R=factor*L
@@ -689,7 +693,7 @@ def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
     Rcirrus=R[:,:,np.argmin(np.abs(bands-1380))]
     r1380=Rcirrus[Rcirrus>0]
     rlambda=R[Rcirrus>0,:]
-
+        
     xs=[]
     ys=[]
     for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.5):
@@ -701,13 +705,27 @@ def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
             ys.append(tmp1380[np.argmin(tmpLambda,axis=0)])
     xs=np.asarray(xs)
     ys=np.asarray(ys)
+
     Ka=[]
     for b in np.arange(xs.shape[1]):
-        p=np.polyfit(xs[:,b],ys[:,b],1) 
-        Ka.append(p[0])
+        xs_trim=xs[:,b].copy()
+        ys_trim=ys[:,b].copy()
+        while (np.amin(np.abs(np.diff(xs_trim)))<0.01): #remove 'vertical' points
+            ys_trim=np.delete(ys_trim,np.argmin(np.abs(np.diff(xs_trim)))+1)
+            xs_trim=np.delete(xs_trim,np.argmin(np.abs(np.diff(xs_trim)))+1)
+            if xs_trim.size==1:
+                break
+        try:
+            ys_trim=ys_trim[1:]
+            xs_trim=xs_trim[1:]
+            p=np.polyfit(xs_trim,ys_trim,1) 
+            Ka.append(p[0])
+        except:
+            Ka.append(1e10)
     Ka=np.asarray(Ka)
     Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
     Rcorr=R-Rcirrus/Ka
+    
     Lcorr=Rcorr/factor
     Lcorr[L<=0]=0
     return Lcorr

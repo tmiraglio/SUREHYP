@@ -13,9 +13,6 @@ import atmoCorrection
 def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut):
     ee.Initialize()
     
-    #f=open(pathOut+fname+'_out.txt','w')
-    #sys.stdout=f
-
     print('concatenate the L1T image')
     preprocess.processImage(fname,pathToL1Timages,pathToL1TimagesFiltered) 
 
@@ -35,12 +32,18 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     VNIR,SWIR=preprocess.alignSWIR2VNIRpart1(VNIR,SWIR)
 
     print('desmiling')
-    VNIR=preprocess.smileCorrectionAll(VNIR,2,check=True)
-    SWIR=preprocess.smileCorrectionAll(SWIR,2,check=True)
-    
-    print('destriping')
-    VNIR=preprocess.destriping(VNIR,'VNIR',0.11)
-    SWIR=preprocess.destriping(SWIR,'SWIR',0.11)
+    VNIR=preprocess.smileCorrectionAll(VNIR,2,check=False)
+    SWIR=preprocess.smileCorrectionAll(SWIR,2,check=False)
+   
+    print('destriping -  Pal et al. (2020)')
+    VNIR,nc=preprocess.destriping_quadratic(VNIR)
+    VNIR=preprocess.destriping_local(VNIR,nc)
+    SWIR,nc=preprocess.destriping_quadratic(SWIR)
+    SWIR=preprocess.destriping_local(SWIR,nc)
+
+    #print('destriping - Datt (2003)')
+    #VNIR=preprocess.destriping(VNIR,'VNIR',0.11)
+    #SWIR=preprocess.destriping(SWIR,'SWIR',0.11)
 
     print('aligning VNIR and SWIR, part 2')
     VNIR,SWIR=preprocess.alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb)
@@ -48,6 +51,9 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     print('assemble VNIR and SWIR')
     arrayL1R,wavelengths,fwhms=preprocess.concatenateImages(VNIR,VNIRb,VNIRfwhm,SWIR,SWIRb,SWIRfwhm)
 
+    print('smooth the cirrus bands for later thin cirrus removal') #may be necessary for Hyperion as an incomplete destriping for this band would then affect every other band during the thin cirrus removal
+    arrayL1R=preprocess.smoothCirrusBand(arrayL1R,wavelengths)
+    
     print('georeference the corrected L1R data using the L1T data')
     arrayL1Rgeoreferenced, metadataGeoreferenced=preprocess.georeferencing(arrayL1R,pathToL1TimagesFiltered,fname)
 
@@ -58,19 +64,17 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
         if (fname in f) and ('_tmp' in f):
             os.remove(os.path.join('./OUT/',f))
 
-    #f.close()        
-
 def atmosphericCorrection(fname,pathOut):
     print('open processed radiance image')
     L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata=atmoCorrection.getImageAndParameters(pathOut+fname+'_L1R_complete')
     
+
     print('removal of thin cirrus')
     L=atmoCorrection.cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV)
     atmoCorrection.saveRimage(L,bands,metadata,pathOut+'cirrus_',fname)
 
     print('get haze spectrum')
     L,Lhaze,DOBJ,bands_dobj=atmoCorrection.darkObjectDehazing(L,bands)
-
 
     print('get average elevation of the scene from GEE')
     altit=atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon)
@@ -105,6 +109,7 @@ if __name__ == '__main__':
 
     pathOut='./OUT/'
 
+    fnames=['EO1H0430332014136110P3']
     fnames=['EO1H0430332013149110K4']
 
 
@@ -113,8 +118,8 @@ if __name__ == '__main__':
     #    print('pooling the preprocessing')
     #    pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
 
-    #for fname in fnames: 
-    #    processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut)
+    for fname in fnames: 
+        processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut)
 
     for fname in fnames:
         atmosphericCorrection(fname,pathOut)
