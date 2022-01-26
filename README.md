@@ -31,9 +31,19 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 ### Installation
 
-A cython library must be compiled to allow usage of a 3D interpolation function faster than scipy's. To install it, navigate to the [interp3d](./func/cython_libraries/interp3d/) folder and run
+For ease of installation, it is recommended to install `pyhdf`,`rasterio` and `richdem` with `conda`:
+
+> conda install pyhdf,rasterio,richdem
+
+Then, SUREHYP can be installed with `pip`: *the pip package is WIP*
+
+> python -m pip install SUREHYP
+
+A cython library may be compiled to allow usage of a 3D interpolation function faster than scipy's. To install it, download [surehyp_cython_extra](https://github.com/tmiraglio/surehyp_cython_extra), navigate in the downloaded folder and run:
 
 > python setup.py install
+
+If this extra library is not installed, the program will revert to Scipy functions.
 
 ### Preprocessing
 

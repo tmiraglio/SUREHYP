@@ -16,10 +16,13 @@ import spectral.io.envi as envi
 import various
 
 def processImage(fname,pathToImages,pathToImagesFiltered):
-    #compiles all TIF bands of the Hyperion image fname into a single TIF image
-    #fname : name of the hyperion image
-    #pathToImages : path to the folder containing the image folder
-
+    '''
+    compiles all TIF bands of the Hyperion L1T image fname into a single TIF image
+    fname : name of the hyperion image
+    pathToImages : path to the folder containing the image folder
+    pathToImagesFiltered: destination folder for the processed images
+    '''
+    
     Path(pathToImages+'tmp/').mkdir(parents=True, exist_ok=True)
     Path(pathToImagesFiltered).mkdir(parents=True, exist_ok=True)
 
@@ -51,7 +54,22 @@ def processImage(fname,pathToImages,pathToImagesFiltered):
             os.remove(os.path.join(pathToImages+'tmp/',f))
 
 def getAcquisitionsProperties(pathToL1Rmetadata,fname=None):
-    #reads the metadata file exported from https://earthexplorer.usgs.gov/ to get the acquisition properties of each Hyperion image necessary for the processing
+    '''
+    reads the metadata file exported from https://earthexplorer.usgs.gov/ to get the acquisition properties of each Hyperion image necessary for the processing
+    
+    pathToL1Rmetadata: path to the Hyperion image metadata csv as downloaded from the usgs website
+    fname: Hyperion image name
+
+    returns:
+    sunZeniths: sun zenith angle in degrees
+    sunAzimuth: sun azimuth angle in degrees
+    satelliteZeniths: satellite zenith angle in degrees
+    satelliteAzimuth: satellite azimuth angle in degrees
+    centerLon, centerLat: center longitude and latitude of the Hyperion image in decimal degrees
+    acquisition date in YYYY-MM-DD or YYYY/MM/DD format
+    acquisitionTimeStart/acquisitionTimeStop: start and end times of the acquisition in YYYY:DOY:HH:mm:ss format
+    '''
+
     df=pd.read_csv(pathToL1Rmetadata,encoding='unicode_escape')
     sunZeniths=-(df['Sun Elevation'].values.astype(float)-90)
     sunAzimuths=df['Sun Azimuth'].values.astype(float)
@@ -69,6 +87,13 @@ def getAcquisitionsProperties(pathToL1Rmetadata,fname=None):
         return sunZeniths[IDs==fname][0],sunAzimuths[IDs==fname][0],satelliteZeniths[IDs==fname][0],satelliteAzimuths[IDs==fname][0],centerLons[IDs==fname][0],centerLats[IDs==fname][0],acquisitionDates[IDs==fname][0],acquisitionTimeStarts[IDs==fname][0],acquisitionTimeStops[IDs==fname][0],IDs[IDs==fname][0]
 
 def getImageCorners(pathToL1Rimages,fname):
+    '''
+    pathToL1Rimages: path to the L1R hyperion images folder
+    fname: ID of the Hyperion image
+
+    return: latitudes/longitudes of the corners of the Hyperion image in clockwise order from upper left
+    '''
+
     with open(pathToL1Rimages+fname+'/'+fname+'.MET') as file:
         lines=file.readlines()
         UL_lat=lines[-9][24:-1]
@@ -82,6 +107,13 @@ def getImageCorners(pathToL1Rimages,fname):
     return UL_lat, UL_lon, UR_lat, UR_lon, LL_lat, LL_lon, LR_lat, LR_lon
 
 def readL1R(path,fname):
+    '''
+    path: path to the L1R image folder
+    fname: ID of the hyperion image
+
+    returns an (m,n,b) array containing the L1R data, with b the number of bands
+    '''
+
     #reads the L1R HDF4 file and reorganizes the axes so that the bands are on axis 2
     #returns the hyperspectral array
     file = SD(path+'/'+fname+'.L1R', SDC.READ)
@@ -91,12 +123,31 @@ def readL1R(path,fname):
     return array
 
 def getImageMetadata(path,fname):
+    '''
+    path: path to the L1R image folder
+    fname: ID of the hyperion image
+
+    returns:
+    - the image metadata
+    - a (b,) array containing the bands wavelength
+    - a (b,) array containing the bands Full-Widths at Half Maximum
+    '''
+
     #returns the metadata of the image
     img=envi.open(path+'/'+fname+'.hdr',path+'/'+fname+'.L1R') #!! problem when reading with spectral, I suspect it fills it considers that bands and samples are swapped. would probably need to reshape the array to correct it
     return img.metadata.copy(), np.asarray(img.metadata['wavelength']).astype(float), np.asarray(img.metadata['fwhm']).astype(float)\
 
 def separating(data3D,bands,fwhms):
-    #separates the Hyperion array into VNIR and SWIR, removes unused bands
+    '''
+    separates the Hyperion array into VNIR and SWIR, removes unused bands
+    
+    data3D: L1R data -- (m,n,b) array
+    bands: wavelengths of the image bands -- (b,) array
+    fwhms: FWHMs of the image bands -- (b,) array
+
+    returns cleaned Hyperion data, separated between VNIR and SWIR
+    '''
+
     VNIR=data3D[:,:,7:56]
     VNIRb=bands[7:56]
     VNIRfwhm=fwhms[7:56]
@@ -106,22 +157,40 @@ def separating(data3D,bands,fwhms):
     return VNIR,VNIRb,VNIRfwhm,SWIR,SWIRb,SWIRfwhm
 
 def DN2Radiance(VNIR,SWIR):
-    #converts digital numbers to radiance
-    #40 for VNIR, 80 for SWIR
+    '''
+    converts digital numbers to radiance
+    40 for VNIR, 80 for SWIR
+    VNIR,SWIR: (m,n,b) arrays
+    '''
+
     return VNIR/40, SWIR/80
 
 def alignSWIR2VNIRpart1(VNIR,SWIR):
-    #first part of the alignment between VNIR and SWIR: moves the right side of the SWIR one pixel up (Khurshid et al., 2006)
+    '''
+    first part of the alignment between VNIR and SWIR: moves the right side of the SWIR one pixel up (Khurshid et al., 2006)
+    VNIR,SWIR: (m,n,b) arrays
+
+    returns (m-2,2-2,b) arrays to account for the bad bands on the sides
+    '''
+
     SWIR[0:-1,128:,:]=SWIR[1:,128:,:]
     SWIR=SWIR[:-1,1:-1,:]
     VNIR=VNIR[:-1,1:-1,:]
     return VNIR,SWIR
 
 def smileCorrectionAll(array,degree,check=False):
-    #desmiles the images using the method presented by San and Suzen (2011)
-    #while in several papers states the smile is in the first band of the MNF (band 0), it is not always the case. The present algorithm searches for the smile band by fitting a `degree` order polynomial function on the column-averaged MNF band. The bands for which the coefficients of order `degree` are above mean+3*std of the coefficients of order `degree` for all bands are assumed to be the smiled bands.
-    #This finding is empirical and led to correct selection of the smiled bands over images EO1H0430332015166110KF, EO1H0430332015288110KF, EO1H0430332014136110P3, EO1H0430332015166110KF, EO1H0430332013149110K4 and EO1H0190262011062110K3 using order 2.
+    '''
+    desmiles the images using the method presented by San and Suzen (2011)
+    while in several papers states the smile is in the first band of the MNF (band 0), it is not always the case. The present algorithm searches for the smile band by fitting a `degree` order polynomial function on the column-averaged MNF band. The bands for which the coefficients of order `degree` are above mean+3*std of the coefficients of order `degree` for all bands are assumed to be the smiled bands.
+    This finding is empirical and led to correct selection of the smiled bands over images EO1H0430332015166110KF, EO1H0430332015288110KF, EO1H0430332014136110P3, EO1H0430332015166110KF, EO1H0430332013149110K4 and EO1H0190262011062110K3 using order 2.
+    
+    array: (m,n,b) array to desmile
+    degree: degree of the polynomial function used for the desmiling
+    check: boolean flag  to ask for a figure showing the before/after desmiling
 
+    returns the desmiled (m,n,b) array
+    '''
+    
     pca = PCA(whiten=True)
     h, w, numBands = array.shape
     X = np.reshape(array, (w*h, numBands))
@@ -155,6 +224,14 @@ def smileCorrectionAll(array,degree,check=False):
     return corrArray
 
 def fpoly(c,x):
+    '''
+    c: array containing the k coefficients of each of the n polymoms fitting the n functions -- (k,m) array
+    x: x values of the polynoms -- (n) array
+
+    returns the polynoms' values over each point x for all of the n polynoms
+    out: (m,n) array
+    '''
+
     out=0
     for k in np.arange(c.shape[0]):
         try:
@@ -164,8 +241,17 @@ def fpoly(c,x):
     return out
 
 def destriping(array,srange,threshold):
-    #destripes the images according to the local method described by Datt et al. (2003)
-    #iterates the local neighbourhoods to remove a maximum of stripes
+    '''
+    destripes the images according to the local method described by Datt et al. (2003)
+    iterates the local neighbourhoods to remove a maximum of stripes
+    
+    array: the radiance array to destripe -- (m,n,b) array
+    srange: 'VNIR' or 'SWIR' depending on the part of the hyperion image the array if from
+    threshold: threshold value to detect outliers
+
+    return a destriped array -- (m,n,b) array
+    '''
+
     ngbrh={'VNIR':21,'SWIR':41}
     mik=np.nanmedian(array,axis=0)
     sik=np.nanstd(array,axis=0)
@@ -175,6 +261,18 @@ def destriping(array,srange,threshold):
     return array
 
 def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
+    '''
+    img: array to destripe -- (m,n,b) array
+    mik: median value of each column of the array -- (n,b) array
+    sik: std value of each column of the array -- (n,b) array
+    ngbrh: neighborhood to use for the outlier destection
+    threshold: threshold value to detect outliers
+
+    return the columns identified as outliers
+    outlier -- (n,b) array
+    '''
+
+
     lmedmik=median_filter(mik,footprint=np.ones((ngbrh,1)),mode='reflect')
     lmedsik=median_filter(sik,footprint=np.ones((ngbrh,1)),mode='reflect')
     test=np.abs(mik-lmedmik)/lmedsik
@@ -184,6 +282,15 @@ def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
     return outlier
 
 def localDestriping3D(img,mik,sik,ngbrh,outlier):
+    '''
+    img: array to destripe -- (m,n,b) array
+    mik: median value of each column of the array -- (n,b) array
+    sik: std value of each column of the array -- (n,b) array
+    ngbrh: neighborhood to use for the outlier destection
+    outlier -- (n,b) array
+    
+    returns the image after correction of the columns marked as outliers
+    '''
     mmik=uniform_filter1d(mik,ngbrh,axis=0)
     msik=uniform_filter1d(sik,ngbrh,axis=0)
     alpha=msik/sik
@@ -198,7 +305,16 @@ def localDestriping3D(img,mik,sik,ngbrh,outlier):
 
 
 def destriping_quadratic(array):
-    #based on a method by Pal et al. (2020)
+    '''
+    spanning-image destriping based on a method by Pal et al. (2020)
+    
+    array: input radiance image to destripe -- (m,n,b) array
+
+    returns:
+    array+diff:radiance with the image destriped of the spanning-column stripes -- (m,n,b) array
+    ncs: width of the largest peaks/crests for each band -- (b,) array
+    '''
+
     Pca=np.nanmedian(array,axis=0)
     Pfit=[]
     ncs=[]
@@ -213,6 +329,16 @@ def destriping_quadratic(array):
     return array+diff, ncs
 
 def destriping_local(array,ncs):
+    '''
+    npn-spanning-image destriping based on a method by Pal et al. (2020)
+    
+    array: input radiance image to destripe -- (m,n,b) array
+    ncs: width of the largest peaks/crests for each band -- (b,) array
+
+    returns:
+    array:radiance with the image destriped of the non-spanning-column stripes -- (m,n,b) array
+
+    '''
     #based on a method by Pal et al. (2020)
     for b in np.arange(array.shape[2]):
         size=3*ncs[b]
@@ -244,10 +370,17 @@ def destriping_local(array,ncs):
     return array
 
 
-def alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb,plot=False,draw=False):
-    #second step of the alignment of VNIR and SWIR: instead of a set rotation, looks for matching features in the images and apply an homography on the SWIR so that SWIR and VNIR are aligned
-    #use bands VNIR and SWIR bands at 925.41 amd 922.54
-    #or could have used bands VNIR and SWIR bands at 935.58 amd 932.64 (Thenkabail et al 2018)
+def alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb):
+    '''
+    second step of the alignment of VNIR and SWIR: instead of a set rotation, looks for matching features in the images and apply an homography on the SWIR so that SWIR and VNIR are aligned
+    use bands VNIR and SWIR bands at 925.41 amd 922.54
+    or could have used bands VNIR and SWIR bands at 935.58 amd 932.64 (Thenkabail et al 2018)
+    VNIR,SWIR: (m,n,b1) and (m,n,b2) arrays
+    VNIRb,SWIRb: (b1,) and (b2,) arrays
+
+    returns aligned VNIR and SWIR arrays -- (m,n,b1) and (m,n,b2) arrays
+    '''
+
     VNIR=np.pad(VNIR,((4,4),(4,4),(0,0)))
     SWIR=np.pad(SWIR,((4,4),(4,4),(0,0)))
     MAX_FEATURES = 10000
@@ -283,14 +416,37 @@ def alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb,plot=False,draw=False):
     return VNIR,SWIR
 
 def concatenateImages(VNIR,VNIRb,VNIRfwhm,SWIR,SWIRb,SWIRfwhm):
-    #reassembles VNIR and SWIR
+    '''
+    reassembles VNIR and SWIR
+    VNIR,SWIR: radiance arrays -- (m,n,b1) and (m,n,b2) arrays
+    VNIRb,SWIRb: wavelengths for each band -- (b1,) and (b2,) arrays
+    VNIRfwhm,SWIRfwhm: fwhm for each band -- (b1,) and (b2,) arrays
+
+    returns:
+    imout: radiance image containing all VNIR and SWIR data -- (m,n,b1+b2) array
+    wavelengths: wavelength for each band -- (b1+b2,) array
+    fwhms: fwhm for each band -- (b1+b2,) array
+    '''
+
     imout=np.concatenate((VNIR,SWIR),axis=2)
     wavelengths=np.concatenate((VNIRb,SWIRb))
     fwhms=np.concatenate((VNIRfwhm,SWIRfwhm))
     return imout, wavelengths, fwhms
 
 def georeferencing(imgL1R,pathToGeoreferencedImage,fname):
-    #georeferences the L1R images using matching features between L1R and a georeferenced image (L1t or L1Gst)
+    '''
+    georeferences the L1R images using matching features between L1R and a georeferenced image (L1t or L1Gst)
+    
+    imgL1R: radiance array to georeference -- (m,n,b) array
+    pathTOGeoreferencedImage: path to the georeferenced image
+    fname: ID of the georefenced hyperion image
+
+    returns:
+    arrayL1RGeoreferenced: the georeferenced radiance array -- (o,p,b) array
+    imgL1Georeferenced.meta: the georefenced image's metadata
+
+    '''
+
     try:
         imgL1Georeferenced=rasterio.open(pathToGeoreferencedImage+fname+'.TIF')
         arrayL1Georeferenced=imgL1Georeferenced.read()
@@ -307,6 +463,20 @@ def georeferencing(imgL1R,pathToGeoreferencedImage,fname):
     return arrayL1RGeoreferenced, imgL1Georeferenced.meta
 
 def alignImages(im1, im2,MAX_FEATURES=10000,GOOD_MATCH_PERCENT=0.25,bandIm1=33,bandIm2=40):
+    '''
+    im1: array to transform (source) -- (m,n,b1) array
+    im2: reference array (target) -- (o,p,b2) array
+    MAX_FEATURES: maximum number of features to identify in each image
+    GOOD_MATCH_PERCENT: percent of matches (0-1) considered as good, e.g. only the first 25% are considered good
+    bandIm1, bandIm2: band of each image considered when looking for features. They must allow for the identification of similar features
+
+    returns:
+    im1Reg: the aligned im1 array -- (o,p,b1) array
+    h: the homography used
+    points1: the features points of image 1
+    points2: the features points of image 2
+    '''
+
     # Convert images to grayscale
     im1Gray=cv2.normalize(src=im1[:,:,bandIm1], dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
     im2Gray=cv2.normalize(src=im2[:,:,bandIm2], dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
@@ -342,12 +512,35 @@ def alignImages(im1, im2,MAX_FEATURES=10000,GOOD_MATCH_PERCENT=0.25,bandIm1=33,b
     return im1Reg, h, points1, points2
 
 def smoothCirrusBand(array,bands,npass=2,size=5):
+    '''
+    array: the radiance array -- (m,n,b) array
+    bands: wavelength associated to each band -- (b,) array
+    npass: the number of passes to make with the smoothing filter
+    size: width of the smoothing filter
+
+    returns:
+    array: the radiance array with a spatially smoother band at 1380 nm, e.g. the cirrus band -- (m,n,b) array
+    '''
     for p in np.arange(npass):
         array[:,:,np.argmin(np.abs(bands-1380))]=median_filter(array[:,:,np.argmin(np.abs(bands-1380))],size=size)
     return array
 
 def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1Rimages,pathToL1Rmetadata,metadataL1R,fname,pathOut,scaleFactor=1e3):
-    #did not find a way to directly save the ENVI file with all the desired metadata (georeferencement and image acquisition properties) so first a temporary image is saved with Rasterio to pre-generate part of the header, then it is open and the actual image with complete header is saved using Spectral.io
+    '''
+    arrayL1RGeoreferenced: array to save -- (m,n,b) array
+    wavelengths: wavelength associated to each band -- (b,) array
+    kwargs: rasterio arguments to use when saving the image using rasterio
+    pathToL1Rimages: path to the L1R data
+    pathToL1Rmetadata: path to the Hyperion image metadata as downloaded from the USGS website
+    metadataL1R: medata of the Hyperion L1R data
+    fname: Hyperion image ID
+    pathOut: path of the image to save
+    scaleFactor: factor by which to multiply the image before saving as an unsigned int16 to save space
+
+
+    did not find a way to directly save the ENVI file with all the desired metadata (georeferencement and image acquisition properties) so first a temporary image is saved with Rasterio to pre-generate part of the header, then it is open and the actual image with complete header is saved using Spectral.io
+    '''
+    
     #conversion to FLAASH units
     #L1R product in W/(m2 um sr) after scaling
     #FLAASH requires uW/(cm2 nm sr)
@@ -371,7 +564,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
         'predictor': 2
     })
 
-    with rasterio.open(pathOut+fname+'_L1R_complete_tmp','w',**kwargs) as out:
+    with rasterio.open(pathOut+'_tmp','w',**kwargs) as out:
         out.write(arrayL1RGeoreferenced[0,:,:],1)
         out.close()
 
@@ -381,7 +574,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
 
     UL_lat, UL_lon, UR_lat, UR_lon, LL_lat, LL_lon, LR_lat, LR_lon=getImageCorners(pathToL1Rimages,fname)
 
-    img=envi.open(pathOut+fname+'_L1R_complete_tmp.hdr',pathOut+fname+'_L1R_complete_tmp')
+    img=envi.open(pathOut+'_tmp.hdr',pathOut+'_tmp')
     metadata=img.metadata.copy()
     metadata['data type']= rasterio.uint16
     metadata['interleave']='bip'
@@ -408,10 +601,16 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
-    envi.save_image(pathOut+fname+'_L1R_complete.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,force=True)
+    envi.save_image(pathOut+'.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,force=True)
 
 
 def plotCheckSmile(mnfArray):
+    '''
+    mnfArray: the MNF array of the radiance image -- (m,n,b) array
+
+    plots the first 10 bands of the MNF array
+    '''
+
     fig,ax=plt.subplots(2,5)
     ax[0,0].imshow(mnfArray[1500:2000,:,0],cmap='binary')
     ax[0,1].imshow(mnfArray[1500:2000,:,1],cmap='binary')
@@ -445,3 +644,5 @@ def plotCheckSmile(mnfArray):
     ax[1,2].axis('off')
     ax[1,3].axis('off')
     ax[1,4].axis('off')
+
+    plt.show()

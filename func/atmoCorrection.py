@@ -7,18 +7,29 @@ import os
 from scipy.signal import savgol_filter
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy import interpolate
-from interp3d import interp_3d
+try:
+    from interp3d import interp_3d
+    flag_interp3d=True
+except:
+    flag_interp3d=False
 import rasterio
 from rasterio.warp import calculate_default_transform, reproject, Resampling
+from rasterio.merge import merge
 import richdem as rd
 from tqdm.auto import tqdm
+#from tqdm.notebook.tqdm import tqdm
 import pandas as pd
 import subprocess
-
 import various
 
+os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
+
 def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None):
-    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
+    '''
+    see SMARTS documentation for details regarding the inputs and outputs
+    
+    returns a dataframe containing the radiative transfer parameters along the optical path
+    '''
 
     if doy<46:
         col=1
@@ -456,6 +467,17 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     return data
 
 def getGEEdate(datestamp1,year,doy,longit,latit):
+    '''
+    datestamp1: date in YYYY/MM/DD or YYYY-MM-DD format
+    year: YYYY
+    doy: Day Of Year
+    longit: decimal longitude
+    latit: decimal latitude
+
+    returns average water vapor in g.cm-2 and ozone concentration in atm-cm over the site using data from GEE
+    '''
+
+
     numPixels=1
 
     WTR = ee.ImageCollection('NCEP_RE/surface_wv') #kg/m2
@@ -482,52 +504,92 @@ def getGEEdate(datestamp1,year,doy,longit,latit):
     return wv, o3
 
 def getImageAndParameters(path):
+    '''
+    path: path to the image saved by surehyp.preprocess.savePreprocessedL1R
+
+    returns the array as well as all the metadata required for the atmospheric correction phase
+    L: radiance array -- (m,n,b) array
+    bands: wavelengths of each band -- (b,) array
+    processing_metadata: metadata corresponding to the acquisition parameters, used for the atmospheric correciton
+    metadata: metadata of the ENVI file
+    '''
+
     img=envi.open(path+'.hdr',path+'.img') #img in uW.cm-2.nm-1.sr-1, with a scaleFactor
 
     bands=np.asarray(img.metadata['wavelength']).astype(float)
     fwhms=np.asarray(img.metadata['fwhm']).astype(float)
-    longit=float(img.metadata['center lon'])
-    latit=float(img.metadata['center lat'])
-    datestamp1=img.metadata['acquisition date']
-    datestamp2=img.metadata['acquisition time start']
-    zenith=float(img.metadata['sun zenith'])
-    azimuth=float(img.metadata['sun azimuth'])
-    satelliteZenith=float(img.metadata['satellite zenith'])
-    satelliteAzimuth=float(img.metadata['satellite azimuth'])-90
-    scaleFactor=float(img.metadata['scale factor'])
+    
+    processing_metadata={}
+    processing_metadata['longit']=float(img.metadata['center lon'])
+    processing_metadata['latit']=float(img.metadata['center lat'])
+    processing_metadata['datestamp1']=img.metadata['acquisition date']
+    processing_metadata['datestamp2']=img.metadata['acquisition time start']
+    processing_metadata['zenith']=float(img.metadata['sun zenith'])
+    processing_metadata['azimuth']=float(img.metadata['sun azimuth'])
+    processing_metadata['satelliteZenith']=float(img.metadata['satellite zenith'])
+    processing_metadata['satelliteAzimuth']=float(img.metadata['satellite azimuth'])-90
+    processing_metadata['scaleFactor']=float(img.metadata['scale factor'])
 
-    UL_lat=float(img.metadata['ul_lat'])
-    UL_lon=float(img.metadata['ul_lon'])
-    UR_lat=float(img.metadata['ur_lat'])
-    UR_lon=float(img.metadata['ur_lon'])
-    LL_lat=float(img.metadata['ll_lat'])
-    LL_lon=float(img.metadata['ll_lon'])
-    LR_lat=float(img.metadata['lr_lat'])
-    LR_lon=float(img.metadata['lr_lon'])
+    processing_metadata['UL_lat']=float(img.metadata['ul_lat'])
+    processing_metadata['UL_lon']=float(img.metadata['ul_lon'])
+    processing_metadata['UR_lat']=float(img.metadata['ur_lat'])
+    processing_metadata['UR_lon']=float(img.metadata['ur_lon'])
+    processing_metadata['LL_lat']=float(img.metadata['ll_lat'])
+    processing_metadata['LL_lon']=float(img.metadata['ll_lon'])
+    processing_metadata['LR_lat']=float(img.metadata['lr_lat'])
+    processing_metadata['LR_lon']=float(img.metadata['lr_lon'])
 
-    year=datestamp1[:4]
-    month=datestamp1[5:7]
-    day=datestamp1[8:]
-    hour=datestamp2[9:11]
-    minute=datestamp2[12:14]
-    doy=datestamp2[5:8]
+    processing_metadata['year']=processing_metadata['datestamp1'][:4]
+    processing_metadata['month']=processing_metadata['datestamp1'][5:7]
+    processing_metadata['day']=processing_metadata['datestamp1'][8:]
+    processing_metadata['hour']=processing_metadata['datestamp2'][9:11]
+    processing_metadata['minute']=processing_metadata['datestamp2'][12:14]
+    processing_metadata['doy']=processing_metadata['datestamp2'][5:8]
 
-    thetaZ=zenith*np.pi/180
-    thetaV=satelliteZenith*np.pi/180
+    processing_metadata['thetaZ']=processing_metadata['zenith']*np.pi/180
+    processing_metadata['thetaV']=processing_metadata['satelliteZenith']*np.pi/180
+
 
     metadata=img.metadata.copy()
 
-    L=img[:,:,:]/scaleFactor #image in uW.cm-2.nm-1.sr-1 with scalefactor
-    return L,bands,fwhms,longit,latit,datestamp1,datestamp2,zenith,azimuth,satelliteZenith,satelliteAzimuth,scaleFactor,year,month,day,hour,minute,doy,thetaZ,thetaV,UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,metadata
+    L=img[:,:,:].astype(np.float32)/processing_metadata['scaleFactor']
+    L=L.astype(np.float32) #image in uW.cm-2.nm-1.sr-1 with scalefactor
+    
+    return L,bands,fwhms,processing_metadata,metadata
 
 def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon):
+    '''
+    UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right
+    lon, lat: longitude, latitude
+    units in decimal degrees
+
+    returns the average site elevation in km using data from GEE
+    '''
+
+
     dem = ee.Image('USGS/SRTMGL1_003');
     dem=dem.select('elevation')
     region=ee.Geometry.Polygon([[[UL_lon,UL_lat],[UR_lon,UR_lat],[LR_lon,LR_lat],[LL_lon,LL_lat]]],None,False)
     elev=dem.reduceRegion(reducer=ee.Reducer.mean(),geometry=region,scale=30)
     return elev.getInfo()['elevation']*1e-3
 
-def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,thetaV,thetaZ,io3,ialt,o3):
+def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imass=3,io3=0,ialt=0,o3=3):
+    '''
+    bands: wavelengths of each band -- (b,) array
+    L: radiance array -- (m,n,b) array
+    altit: site altitude in km
+    latit, longit: site latitude and longitude in decimal degrees
+    year: YYYY
+    month: MM
+    day: DD
+    doy: Day Of Year
+    thetaV: satellite zenith angle in radians
+    io3,ialt,o3,imass: see SMARTS documentation
+
+    returns the site average water vapor content using the water absorption bands at 940 and 1120 and comparing the absorption depth over land with the absorption depths over a LUT generated with SMARTS for the same optical path
+    '''
+
+
     #remove water pixels to keep only land surfaces
     L=L[L[:,:,0]!=0]
     L=L[L[:,np.argmin(np.abs(bands-940))]>0.25]
@@ -545,7 +607,7 @@ def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,theta
 
     for wv in np.concatenate((np.arange(0,1.5,0.2),np.arange(1.5,4,0.5),np.arange(4,12,1))):
         df=runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=imass,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
-        df_gs=runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0.1,IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
+        df_gs=runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
 
         W=df['Wvlgth']
         E=df['Extraterrestrial_spectrm']
@@ -553,7 +615,7 @@ def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,theta
         T=df['Direct_rad_transmittance']
         T_gs=df_gs['Direct_rad_transmittance']
 
-        Lout=T_gs*(T*E+Dft)*5
+        Lout=T_gs*(T*E+Dft)
         Lout[W<=1700]=gaussian_filter(Lout[W<=1700],various.fwhm2sigma(10))
         Lout[W>1700]=gaussian_filter(Lout[W>1700],various.fwhm2sigma(2))
 
@@ -593,6 +655,16 @@ def getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,hour,doy,theta
     return wvImg
 
 def darkObjectDehazing(L,bands):
+    '''
+    bands: wavelengths of each band -- (b,) array
+    L: radiance array -- (m,n,b) array
+
+    returns:
+    L: the dehazed radiance array usign the Dark object substraction method by Chavez (1988)  -- (m,n,b) array
+    Lhaze: the haze radiance spectrum -- (b,) array
+    '''
+
+
     Ltmp=L[L[:,:,0]>0,:]
     DOBJ=np.amin(Ltmp,axis=0)
     DOBJ=smoothing(DOBJ,5,1)
@@ -612,25 +684,46 @@ def darkObjectDehazing(L,bands):
     Lhaze[Lhaze<0]=0
     L=L-Lhaze
     L[L<=0]=0
-    return L,Lhaze,DOBJ,bands_dobj
+    return L,Lhaze
 
 def get_SUNCOR(doy):
+    '''
+    doy: Day of Year
+
+    returns the sun-earth distance correction factor
+    '''
+
     #compute the sun-earth distance correction factor depending on the day of year
     return 1-0.0335*np.sin(360*(int(doy)-94)/365*np.pi/180)
 
-def smoothing(R,width=3,order=1,processO2=False,bands=None):
-    if processO2==True: #remove band values from ]750,780[ and replaces them by values interpolated used the two previous and next R values
-        argb=np.zeros(bands.shape).astype(int)
-        argb[np.logical_and(bands>=730,bands<=750)]=1
-        argb[np.logical_and(bands>=780,bands<=800)]=1
-        Rtmp=R[R[:,:,0]>0,:]
-        f=interp1d(bands[argb==1],Rtmp[...,argb==1], kind='cubic')
-        Rtmp[:,:,argb]=f(Rtmp[...,argb==1])
-        R[R[:,:,0]>0,:]=Rtmp
+def smoothing(R,width=3,order=1):#,processO2=False,bands=None):
+    '''
+    R: array -- (...,b) array
+    width: width of the savitzky golay filter
+    order: order of the polynom for the filter
+
+    returns the R array filtered over the last axis
+    '''
+    #if processO2==True: #remove band values from ]750,780[ and replaces them by values interpolated used the two previous and next R values
+    #    argb=np.zeros(bands.shape).astype(int)
+    #    argb[np.logical_and(bands>=730,bands<=750)]=1
+    #    argb[np.logical_and(bands>=780,bands<=800)]=1
+    #    Rtmp=R[R[:,:,0]>0,:]
+    #    f=interp1d(bands[argb==1],Rtmp[...,argb==1], kind='cubic')
+    #    Rtmp[:,:,argb]=f(Rtmp[...,argb==1])
+    #    R[R[:,:,0]>0,:]=Rtmp
 
     return savgol_filter(R,width,order)
 
-def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
+def computeLtoEfactor(df,df_gs):
+    '''
+    df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
+    df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
+
+    returns the factor used to convert at sensor radiance to BOA reflectance 
+    '''
+
+
     #compute the factor to convert TOA radiance to surface reflectance
     W=df['Wvlgth'].values
     E=df['Extraterrestrial_spectrm']
@@ -645,37 +738,84 @@ def computeLtoEfactor(df,df_gs,thetaV,thetaZ):
     factor[W<=1700]=gaussian_filter(factor[W<=1700],various.fwhm2sigma(10))
     factor[W>1700]=gaussian_filter(factor[W>1700],various.fwhm2sigma(2))
 
-    return factor,W,E,Dtt,Dft,T,T_gs
+    return factor
 
-def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,thetaZ,imass=3,io3=0,ialt=0,o3=3):
+def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,imass=3,io3=0,ialt=0,o3=3):
+    '''
+    bands: wavelengths of each band -- (b,) array
+    L: radiance array -- (m,n,b) array
+    datestamp1: date in YYYY/MM/DD or YYYY-MM-DD format
+    year: YYYY
+    month: MM
+    minute: mm
+    day: DD
+    doy: Day Of Year
+    latit, longit: site latitude and longitude in decimal degrees
+    altit: site altitude in km
+    thetaV: satellite zenith angle in radians
+    io3,ialt,o3,imass: see SMARTS documentation
+   
+    returns atmopsheric ozone and water vapor content for the study site from GEE or (for water, if possible) directly from the image
+    '''
+
     #obtain some atmospheric parameters using GEE
     print('get water vapor and ozone from GEE')
     wvGEE,o3=getGEEdate(datestamp1,year,doy,longit,latit)
 
     print('get water vapor from the radiance image')
-    wv=getWaterVapor(bands,L,altit,latit,longit,imass,year,month,day,int(hour)+int(minute)/60,doy,thetaV,thetaZ,io3,ialt,o3)
+    wv=getWaterVapor(bands,L,altit,latit,longit,year,month,day,int(hour)+int(minute)/60,doy,thetaV,imass,io3,ialt,o3)
 
     if (wv>12) or (np.isnan(wv)):
         wv=wvGEE
     return wv,o3
 
-def computeLtoE(L,bands,df,df_gs,thetaV,thetaZ):
+def computeLtoE(L,bands,df,df_gs):
+    '''
+    bands: wavelengths of each band -- (b,) array
+    L: at satellite radiance array -- (m,n,b) array
+    df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
+    df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
+
+    returns:
+    R: the BOA reflectance  -- (m,n,b) array
+    '''
+
     #get the factor to convert TOA radiance to surface reflectance and return the reflectance
-    factor,W,E,Dtt,Dft,T,T_gs=computeLtoEfactor(df,df_gs,thetaV,thetaZ)
+    factor=computeLtoEfactor(df,df_gs)
     fun=interpolate.interp1d(W,factor)
     factor=fun(bands)
     R=factor*L
     return R
 
-def saveRimage(R,bands,metadata,pathOut,scaleFactor=1e5):
-    scale=1E4*np.ones(bands.shape)
+def saveRimage(R,metadata,pathOut,scaleFactor=100):
+    '''
+    R: array to save -- (m,n,b) array
+    metadata: image metadata (ENVI format for the Spectral library)
+    pathOut: pathout (must end with .hdr)
+    scaleFactor: scaling factor to multiply the reflectance with. Allows for saving the array in unsigned int16 format to save space
+    '''
+
+    scale=scaleFactor*np.ones(R.shape[2])
     metadata['scale factor']=scale.tolist()
-    R=np.round(R*scaleFactor,0).astype(int)
-    R[R>1e7]=1e7
+    R=R*scaleFactor
+    R[R>65535]=65535
     R[R<0]=0
-    envi.save_image(pathOut+fname+'_Reflectance.hdr',R,metadata=metadata,force=True)
+    R=R.astype(np.uint16)
+    envi.save_image(pathOut,R,metadata=metadata,force=True)
 
 def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
+    '''
+    bands: wavelengths of each band -- (b,) array
+    latit, longit: site latitude and longitude in decimal degrees
+    year: YYYY
+    month: MM
+    day: DD
+    doy: Day Of Year
+    thetaV: satellite zenith angle in radians
+    
+    return the factor used to convert at satellite radiance to TOA reflectance
+    '''
+    
     #compute TOA reflectance
     df=runSMARTS(ALTIT=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=0,IO3=0,IALT=0,AbO3=0)
     W=df['Wvlgth'].values
@@ -687,21 +827,35 @@ def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
     factor=f(bands)
     return factor
 
-def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
+def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV):
+    '''
+    bands: wavelengths of each band -- (b,) array
+    A: radiance array -- (m,n,b) array
+    latit, longit: site latitude and longitude in decimal degrees
+    year: YYYY
+    month: MM
+    day: DD
+    doy: Day Of Year
+    thetaV: satellite zenith angle in radians
+    
+    return the cirrus-removed radiance array -- (m,n,b) array
+    '''
+    
     #uses the method presented by Gao et al 1997, 2017 to remove cirrus effects
     #compute TOA reflectance, performs the cirrus removal, and retransforms to TOA radiance
     #returns the cirrus-removed TOA radiance
-    factor=getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV)
-    R=factor*L
-    R[L<=0]=0
+    factor=getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV).astype(np.float32)
+    A=factor*A
+    A[A<=0]=0
+    A=A.astype(np.float32)
 
-    Rcirrus=R[:,:,np.argmin(np.abs(bands-1380))]
+    Rcirrus=A[:,:,np.argmin(np.abs(bands-1380))]
     r1380=Rcirrus[Rcirrus>0]
-    rlambda=R[Rcirrus>0,:]
+    rlambda=A[Rcirrus>0,:]
 
     xs=[]
     ys=[]
-    for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.5):
+    for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.25):
         cond=np.logical_and(r1380>=i,r1380<i+1)
         tmp1380=r1380[cond]
         tmpLambda=rlambda[cond,:]
@@ -715,42 +869,104 @@ def cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV):
     for b in np.arange(xs.shape[1]):
         xs_trim=xs[:,b].copy()
         ys_trim=ys[:,b].copy()
-        while (np.amin(np.abs(np.diff(xs_trim)))<0.01): #remove 'vertical' points
-            ys_trim=np.delete(ys_trim,np.argmin(np.abs(np.diff(xs_trim)))+1)
-            xs_trim=np.delete(xs_trim,np.argmin(np.abs(np.diff(xs_trim)))+1)
-            if xs_trim.size==1:
-                break
-        try:
+        if xs_trim.size>6:
+            diff=np.diff(xs_trim)
             ys_trim=ys_trim[1:]
             xs_trim=xs_trim[1:]
-            p=np.polyfit(xs_trim,ys_trim,1)
-            Ka.append(p[0])
-        except:
-            Ka.append(1e10)
-    Ka=np.asarray(Ka)
-    Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
-    Rcorr=R-Rcirrus/Ka
+            ys_trim=ys_trim[diff>0.01]
+            xs_trim=xs_trim[diff>0.01]
 
-    Lcorr=Rcorr/factor
-    Lcorr[L<=0]=0
-    return Lcorr
-    envi.save_image(pathOut+'.hdr',R,metadata=metadata)
+            if xs_trim.size>5:
+                p=np.polyfit(xs_trim,ys_trim,1)
+                Ka.append(p[0])
+            else:
+                Ka.append(10000)
+        else:
+            Ka.append(10000)
+    Ka=np.asarray(Ka).astype(np.float32)
+    Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
+    A=A-Rcirrus/Ka
+    A=A/factor
+    A[A<=0]=0
+    return A
 
 def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
+    '''
+    UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right
+    lon, lat: longitude, latitude
+    units in decimal degrees
+
+    downloads the DEM image for the region delimited by the latitudes and longitudes from GEE
+    '''
+
     elev = ee.Image('USGS/SRTMGL1_003');
     elev=elev.select('elevation')
+    #slope=ee.Terrain.slope(elev)
+    #aspect=ee.Terrain.aspect(elev)
 
-    region=ee.Geometry.Polygon([[[UL_lon-0.05,UL_lat+0.05],[UR_lon+0.05,UR_lat+0.05],[LR_lon+0.05,LR_lat-0.05],[LL_lon-0.05,LL_lat-0.05]]],None,False)
+    try: # download can fail if image is too large, so it may be necessary to download it by parts and reassemble everything
+        region=ee.Geometry.Polygon([[[UL_lon-0.05,UL_lat+0.05],[UR_lon+0.05,UR_lat+0.05],[LR_lon+0.05,LR_lat-0.05],[LL_lon-0.05,LL_lat-0.05]]],None,False)
+        elev=elev.clip(region)
+        geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
+    except:
+        elev = ee.Image('USGS/SRTMGL1_003');
+        elev=elev.select('elevation')
+        lon_min=np.amin([UL_lon-0.05,UR_lon-0.05,LR_lon-0.05,LL_lon-0.05])
+        lon_max=np.amax([UL_lon+0.05,UR_lon+0.05,LR_lon+0.05,LL_lon+0.05])
+        lat_min=np.amin([UL_lat-0.05,UR_lat-0.05,LR_lat-0.05,LL_lat-0.05])
+        lat_max=np.amax([UL_lat+0.05,UR_lat+0.05,LR_lat+0.05,LL_lat+0.05])
 
-    elev=elev.clip(region)
-    geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
+        lon_mid=(lon_min+lon_max)/2
+        lat_mid=(lat_min+lat_max)/2
+        
+        region=ee.Geometry.Polygon([[[lon_min,lat_max],[lon_mid,lat_max],[lon_mid, lat_mid],[lon_min,lat_mid]]],None,False)
+        elev0=elev.clip(region)
+        geetools.batch.image.toLocal(elev0,'elev0',scale=30,region=region)
+        
+        region=ee.Geometry.Polygon([[[lon_mid,lat_max],[lon_max,lat_max],[lon_max, lat_mid],[lon_mid,lat_mid]]],None,False)
+        elev1=elev.clip(region)
+        geetools.batch.image.toLocal(elev1,'elev1',scale=30,region=region)
+
+        region=ee.Geometry.Polygon([[[lon_mid,lat_mid],[lon_max,lat_mid],[lon_max, lat_min],[lon_mid,lat_min]]],None,False)
+        elev2=elev.clip(region)
+        geetools.batch.image.toLocal(elev2,'elev2',scale=30,region=region)
+
+        region=ee.Geometry.Polygon([[[lon_min,lat_mid],[lon_mid,lat_mid],[lon_mid, lat_min],[lon_min,lat_min]]],None,False)
+        elev3=elev.clip(region)
+        geetools.batch.image.toLocal(elev3,'elev3',scale=30,region=region)
+
+        src_files_to_mosaic=[]
+        for elev in ['elev0','elev1','elev2','elev3']:
+            src=rasterio.open('./'+elev+'/SRTMGL1_003.elevation.tif')
+            src_files_to_mosaic.append(src)
+        mosaic, out_trans=merge(src_files_to_mosaic)
+        out_meta=src.meta.copy()
+        out_meta.update({"driver": "GTiff",
+                         "height": mosaic.shape[1],
+                         "width": mosaic.shape[2],
+                         "transform": out_trans,
+                        }
+                    )
+
+        try:
+            os.mkdir('./elev/')
+        except:
+            print('could not create folder ./elev/')
+            raise
+        with rasterio.open('./elev/SRTMGL1_003.elevation.tif', "w", **out_meta) as dest:
+            dest.write(mosaic)
 
     for f in os.listdir('.'):
         if '.zip' in f:
             os.remove(os.path.join('.',f))
 
-
 def reprojectImage(im,dst_crs,pathOut):
+    '''
+    im: rasterio image to reproject
+    dst_crs: crs to reproject img to
+    pathOut: path to save the reprojected image
+    '''
+
     with im as src:
         transform, width, height = calculate_default_transform(
             src.crs, dst_crs, src.width, src.height, *src.bounds)
@@ -776,12 +992,26 @@ def reprojectImage(im,dst_crs,pathOut):
                 warp_mem_limit=1024)
         dst.close()
 
-def get_target_rows_cols(T0,array1,imSecondary):
+def get_target_rows_cols(im1,imSecondary, maskBand=40):
+    '''
+    im1: rasterio reference image
+    imSecondary: rasterio image
+    maskBand: band used to keep pixels containing values: pixels with negative values for this band will not be considered
+
+    returns rows, cols, rowsSeconday and colsSecondary:
+    rows, cols: indexes of pixels containing values in im1
+    rowsSecondary, colsSecondary: indexes of the pixels in imSecondary that are associated with rows, cols in im1
+    '''
+
+    t0=im1.transform
+    array1=im1.read()
+    array1=np.moveaxis(ar1,0,2)
+    
     # All rows and columns
     cols, rows = np.meshgrid(np.arange(array1.shape[1]), np.arange(array1.shape[0]))
 
-    cols=cols[array1[:,:,40]>=0]
-    rows=rows[array1[:,:,40]>=0]
+    cols=cols[array1[:,:,maskBand]>=0]
+    rows=rows[array1[:,:,]>=0]
     xs,ys=rasterio.transform.xy(T0,rows,cols)
 
     #get coordinates row/cols in the landcover map
@@ -792,6 +1022,15 @@ def get_target_rows_cols(T0,array1,imSecondary):
     return rows,cols,rowsSecondary, colsSecondary
 
 def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
+    '''
+    array1: reference array -- (m,n,...) array
+    array2: (m,n) array
+    rows, cols: indexes of pixels containing values in array1
+    rowsSecondary, colsSecondary: indexes of the pixels in array2 that are associated with rows, cols in array1
+    
+    returns an array with shape (m,n) containing the values of array2
+    '''
+
     #remove OOB values
     rows=rows[rowsSecondary>0]
     cols=cols[rowsSecondary>0]
@@ -815,10 +1054,30 @@ def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
     arraySecondaryNew=np.reshape(arraySecondaryNew,(array1.shape[0],array1.shape[1]))
     return arraySecondaryNew
 
-def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,IH2O,WV,IO3,IALT,AbO3,year,month,day,hour,doy,thetaZ,satelliteZenith,satelliteAzimuth,L,bands):
+def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,WV,AbO3,year,month,day,hour,doy,satelliteZenith,satelliteAzimuth,L,bands,IH2O=0,IO3=0,IALT=0):
+    '''
+    altitMap: elevation map of the study site (km) -- (m,n) array
+    tiltMap: slope tilt angle map (degree) -- (m,n) array
+    wazimMap: slope aspect map (degree) -- (m,n) array
+    stepAltit, stepTilt, stepWazim: steps for the sampling scheme over the LUT over altitude, slope angle and asspect
+    longit, latit: longitude, latitude
+    year: YYYY
+    month: MM
+    day: DD
+    doy: Day Of Year
+    satelliteZenith: satellite zenith angle in degrees
+    satelliteAzimuth: satellite azimuth angle in degrees (may be set to 0 here as per SMARTS doc)
+    bands: wavelengths of each band -- (b,) array
+    L: at satellite radiance array -- (m,n,b) array
+    WV: site water vapor
+    AbO3: site ozone
+    IH2O, IO3, IALT: see SMARTS documentation, leave untouched unless you want to edit the function
+
+    returns the reflectance image, computed taking the site topography into account in SMARTS
+    '''
 
     #prepare the iteration vectors for the LUT building
-    ALTITS=np.arange(np.floor(np.nanmin(altitMap)),np.maximum(np.ceil(np.nanmax(altitMap))+stepAltit,np.floor(np.nanmin(altitMap))+2*stepAltit),stepAltit)
+    ALTITS=np.arange(np.maximum(0,np.floor(np.nanmin(altitMap))),np.maximum(np.ceil(np.nanmax(altitMap))+stepAltit,np.floor(np.nanmin(altitMap))+2*stepAltit),stepAltit)
     TILTS=np.arange(np.floor(np.nanmin(tiltMap)),np.maximum(np.ceil(np.nanmax(tiltMap))+stepTilt,np.floor(np.nanmin(tiltMap))+2*stepTilt),stepTilt) #decimal degree
     WAZIMS=np.arange(np.floor(np.nanmin(wazimMap)),np.maximum(np.ceil(np.nanmax(wazimMap))+stepWazim,np.floor(np.nanmin(wazimMap))+stepWazim),stepWazim)
 
@@ -834,18 +1093,20 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
         for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
             for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
                 df=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
-                df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=satelliteZenith,AZIM=satelliteAzimuth,IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
+                df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
 
                 Dgt=df['Global_tilted_irradiance']
                 T_gs=df_gs['Direct_rad_transmittance']
-                tmp=np.pi/T_gs/(Dgt)
+                tmp=np.pi/T_gs/Dgt
                 tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],various.fwhm2sigma(10))
                 tmp[W>1700]=gaussian_filter1d(tmp[W>1700],various.fwhm2sigma(2))
                 data[i,j,k,:]=tmp
     W=df['Wvlgth'].values
 
-    #interpFunction = interpolate.RegularGridInterpolator((ALTITS, TILTS, WAZIMS), data)
-    interpFunction = interp_3d.Interp3D(data,ALTITS,TILTS,WAZIMS)
+    if flag_interp3d==True: #if the cython library interp3d has been installed, use it 
+        interpFunction = interp_3d.Interp3D(data,ALTITS,TILTS,WAZIMS)
+    else: #otherwise use scipy
+        interpFunction = interpolate.RegularGridInterpolator((ALTITS, TILTS, WAZIMS), data)
 
     data=None
 
@@ -855,6 +1116,7 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
 
     R=np.zeros((L.shape[0]*L.shape[1],L.shape[2])).squeeze()
     Lflat=L.reshape((L.shape[0]*L.shape[1],L.shape[2]))
+
     for idxx in np.array_split(idx,100):
         values=np.stack((altitMap.flatten()[idxx],tiltMap.flatten()[idxx],wazimMap.flatten()[idxx]),axis=-1)
         M=interpFunction(values)
@@ -864,17 +1126,31 @@ def getSmartsFactorDem(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,la
     return R
 
 def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif'):
-    im1=rasterio.open(path_im1)
+    '''
+    path_im1: rasterio reference image
+    path_elev: path of the image to reproject
+    path_elev_out: path to save the reprojected image to
 
+    reprojects the DEM image in the CRS of im1
+    '''
+
+    im1=rasterio.open(path_im1)
     im2=rasterio.open(path_elev)
     reprojectImage(im2,im1.profile['crs'],path_elev_out)
 
 def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):
+    '''
+    pathToIm1: path to the reference image for which the DEM data needs to be extracted
+    path_elev: path to the DEM image
+
+    returns elevation, slope angle, and slope aspect (km, degree, degree) maps for im1 -- (m,n) arrays
+    '''
+
     im1=rasterio.open(pathToIm1)
     im1_transform=im1.transform
     ar1=im1.read()
     ar1=np.moveaxis(ar1,0,2)
-    rows1,cols1,rows2, cols2=get_target_rows_cols(im1_transform,ar1,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
+    rows1,cols1,rows2, cols2=get_target_rows_cols(im1,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
     elev=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_elev).read()),rows1,cols1,rows2, cols2)
     elev[ar1[:,:,40]<=0]=np.nan
     elev=elev*1e-3
@@ -886,10 +1162,5 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):
     wazim=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='aspect')
     wazim=extractSecondaryData(ar1,wazim,rows1,cols1,rows2, cols2)
     wazim[ar1[:,:,40]<=0]=np.nan
-
-    fig,ax=plt.subplots(1,3)
-    ax[0].imshow(elev)
-    ax[1].imshow(slope)
-    ax[2].imshow(wazim)
 
     return elev, slope, wazim
