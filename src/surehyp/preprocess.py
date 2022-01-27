@@ -13,7 +13,7 @@ from scipy.signal import savgol_filter, find_peaks
 from sklearn.decomposition import PCA
 import spectral.io.envi as envi
 
-import various
+import surehyp.various
 
 def processImage(fname,pathToImages,pathToImagesFiltered):
     '''
@@ -342,11 +342,11 @@ def destriping_local(array,ncs):
     #based on a method by Pal et al. (2020)
     for b in np.arange(array.shape[2]):
         size=3*ncs[b]
-        if not various.is_odd(size):
+        if not surehyp.various.is_odd(size):
             size+=1
 
         Icorr_mean=uniform_filter(array[:,:,b],size=(size,size))
-        Icorr_std=various.window_stdev(array[:,:,b],(size,size))
+        Icorr_std=surehyp.various.window_stdev(array[:,:,b],(size,size))
         Icorr_diff=array[:,:,b]-Icorr_mean
         bad_pixels=np.zeros(array[:,:,b].shape)
         bad_pixels[Icorr_diff>Icorr_std]=1
@@ -396,7 +396,10 @@ def alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb):
     matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
     matches = matcher.match(descriptors1, descriptors2, None)
     # Sort matches by score
-    matches.sort(key=lambda x: x.distance, reverse=False)
+    try:
+        matches=sorted(matches, key=lambda x: x.distance, reverse=False)
+    except:
+        matches.sort(key=lambda x: x.distance, reverse=False)
     # Remove not so good matches
     numGoodMatches = int(len(matches) * GOOD_MATCH_PERCENT)
     matches = matches[:numGoodMatches]
@@ -488,7 +491,11 @@ def alignImages(im1, im2,MAX_FEATURES=10000,GOOD_MATCH_PERCENT=0.25,bandIm1=33,b
     matcher = cv2.DescriptorMatcher_create(cv2.DESCRIPTOR_MATCHER_BRUTEFORCE_HAMMING)
     matches = matcher.match(descriptors1, descriptors2, None)
     # Sort matches by score
-    matches.sort(key=lambda x: x.distance, reverse=False)
+    try:
+        matches=sorted(matches,key=lambda x: x.distance, reverse=False)
+    except:
+        matches.sort(key=lambda x: x.distance, reverse=False)
+
     # Remove not so good matches
     numGoodMatches = int(len(matches) * GOOD_MATCH_PERCENT)
     matches = matches[:numGoodMatches]

@@ -5,7 +5,7 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 ## Description
 
-[surehyp](./surehyp.py) is an example script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
+[example](./example.py) is an example script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
 
 [preprocess](./func/preprocess.py) contains the various functions called in the preprocessing step, to obtain georeferenced, desmiled, and destriped hyperspectral images.
 
@@ -31,19 +31,35 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 ### Installation
 
-For ease of installation, it is recommended to install `pyhdf`,`rasterio` and `richdem` with `conda`:
+For ease of installation, it is recommended to install `pyhdf`,`rasterio`, `richdem` and `gdal` with `conda`:
 
-> conda install pyhdf,rasterio,richdem
+> conda install pyhdf rasterio richdem gdal
 
 Then, SUREHYP can be installed with `pip`: *the pip package is WIP*
 
-> python -m pip install SUREHYP
+> python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple surehyp-test
 
-A cython library may be compiled to allow usage of a 3D interpolation function faster than scipy's. To install it, download [surehyp_cython_extra](https://github.com/tmiraglio/surehyp_cython_extra), navigate in the downloaded folder and run:
+[//]: <> python -m pip install SUREHYP
+
+An extra cython library may be compiled to allow usage of a 3D interpolation function faster than Scipy's. To install it, download [surehyp_cython_extra](https://github.com/tmiraglio/surehyp_cython_extra), navigate to the downloaded folder and run:
 
 > python setup.py install
 
 If this extra library is not installed, the program will revert to Scipy functions.
+
+To obtain Earth Engine credentials and be able to download data from GEE, users can follow the steps described [here](https://developers.google.com/earth-engine/guides/python_install-conda#get_credentials).
+
+To obtain SMARTS, refer to [this section](https://github.com/tmiraglio/SUREHYP#third-party-softwares).
+
+### Use
+
+Functions for preprocessing the radiance data can be called with
+
+> import surehyp.preprocess
+
+Functions dedicated to the atmospheric correction can be called with
+
+> import surehyp.atmoCorrection
 
 ### Preprocessing
 
@@ -113,12 +129,12 @@ B. T. San and M. L. Suzen, "Evaluation of cross-track illumination in EO-1 hyper
 
 B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, "Preprocessing EO-1 Hyperion hyperspectral data to support the application of agricultural indexes", IEEE Transactions on Geoscience and Remote Sensing, vol. 41, no. 6 PART I, pp. 1246-1259, Jun. 2003, doi: 10.1109/TGRS.2003.813206.
 
-M. K. Pal, A. Porwal, T. M. Rasmussen,“Noise reduction and destriping usinglocal spatial statistics and quadratic regression from Hyperion images,”J. Appl. Remote Sens.14(1), 016515 (2020), doi: 10.1117/1.JRS.14.016515
+M. K. Pal, A. Porwal, T. M. Rasmussen,Â“Noise reduction and destriping usinglocal spatial statistics and quadratic regression from Hyperion images,Â”J. Appl. Remote Sens.14(1), 016515 (2020), doi: 10.1117/1.JRS.14.016515
 
-B.C. Gao and R.R. Li, “Removal of thin cirrus scattering effects in Landsat 8 OLI images using the cirrus detecting channel”, Remote Sensing 9, 834, 2017
+B.C. Gao and R.R. Li, Â“Removal of thin cirrus scattering effects in Landsat 8 OLI images using the cirrus detecting channelÂ”, Remote Sensing 9, 834, 2017
 
 C. A. Gueymard, "Parameterized transmittance model for direct beam and circumsolar spectral irradiance", Solar Energy, vol. 71, no. 5, pp. 325-346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
 
-C. A. Gueymard, "The SMARTS spectral irradiance model after 25 years: New developments and validation of reference spectra", Solar Energy, vol. 187, pp. 233-253, Jul. 2019, doi: 10.1016/j.solener.2019.05.048.
+C. A. Gueymard, "The SMARTS spectral irradiance model after 25Â years: New developments and validation of reference spectra", Solar Energy, vol. 187, pp. 233-253, Jul. 2019, doi: 10.1016/j.solener.2019.05.048.
 
 P. S. Chavez, "An improved dark-object subtraction technique for atmospheric scattering correction of multispectral data", Remote Sensing of Environment, vol. 24, no. 3, pp. 459-479, Apr. 1988, doi: 10.1016/0034-4257(88)90019-3.

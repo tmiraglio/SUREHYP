@@ -4,6 +4,7 @@ import numpy as np
 import ee
 import geetools
 import os
+from pathlib import Path
 from scipy.signal import savgol_filter
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy import interpolate
@@ -20,11 +21,13 @@ from tqdm.auto import tqdm
 #from tqdm.notebook.tqdm import tqdm
 import pandas as pd
 import subprocess
-import various
 
-os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
+import surehyp.various
+
+
 
 def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None):
+    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
     '''
     see SMARTS documentation for details regarding the inputs and outputs
     
@@ -66,7 +69,8 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     CMNT='test'
     ISPR='2'
     SPR=None
-    ALTIT=str(ALTIT)
+    if ALTIT!=None:
+        ALTIT=str(np.round(ALTIT,3))
     HEIGHT='0'
     IATMOS='1'
     ATMOS=dico_aero[(np.round(LATIT/10,0),col)]
@@ -79,7 +83,8 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     W=str(WV)
     IO3=str(IO3)
     IALT=str(IALT)
-    AbO3=str(AbO3)
+    if AbO3!=None:
+        AbO3=str(np.round(AbO3,5))
     IGAS='1'
     ILOAD=None
     ApCH2O=None
@@ -106,7 +111,7 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     RANGE=None
     VISI=str(VISI)
     if TAU550==None:
-        TAU550=str(np.exp(-3.2755-0.15078*float(ALTIT)))
+        TAU550=str(np.round(np.exp(-3.2755-0.15078*float(ALTIT)),5))
     IALBDX='17'
     RHOX=None
     ITILT=str(ITILT)
@@ -116,7 +121,7 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     RHOG=None
     WLMN='350'
     WLMX='2600'
-    SUNCOR=str(SUNCOR)
+    SUNCOR=str(np.round(SUNCOR,5))
     SOLARC='1367'
     IPRT='2'
     WPMN='350'
@@ -136,7 +141,8 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     ILLUM='0'
     IUV='0'
     IMASS=str(IMASS)
-    ZENITH=str(ZENITH)
+    if ZENITH!=None: 
+        ZENITH=str(np.round(ZENITH,3))
     AZIM=str(AZIM)
     ELEV=None
     AMASS=None
@@ -150,7 +156,7 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
         ZONE+=1
     ZONE=int(np.sign(LONGIT)*ZONE)
     HOUR=float(HOUR)+ZONE
-    HOUR=str(HOUR)
+    HOUR=str(np.round(HOUR,3))
     ZONE=str(ZONE)
     LONGIT=str(LONGIT)
     DSTEP=None
@@ -588,8 +594,7 @@ def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imas
 
     returns the site average water vapor content using the water absorption bands at 940 and 1120 and comparing the absorption depth over land with the absorption depths over a LUT generated with SMARTS for the same optical path
     '''
-
-
+    
     #remove water pixels to keep only land surfaces
     L=L[L[:,:,0]!=0]
     L=L[L[:,np.argmin(np.abs(bands-940))]>0.25]
@@ -616,8 +621,8 @@ def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imas
         T_gs=df_gs['Direct_rad_transmittance']
 
         Lout=T_gs*(T*E+Dft)
-        Lout[W<=1700]=gaussian_filter(Lout[W<=1700],various.fwhm2sigma(10))
-        Lout[W>1700]=gaussian_filter(Lout[W>1700],various.fwhm2sigma(2))
+        Lout[W<=1700]=gaussian_filter(Lout[W<=1700],surehyp.various.fwhm2sigma(10))
+        Lout[W>1700]=gaussian_filter(Lout[W>1700],surehyp.various.fwhm2sigma(2))
 
         lShoulder940=np.mean(Lout[np.logical_and(W>=l940[0],W<=l940[1])])
         rShoulder940=np.mean(Lout[np.logical_and(W>=r940[0],W<=r940[1])])
@@ -735,8 +740,8 @@ def computeLtoEfactor(df,df_gs):
     Dgt=df['Global_tilted_irradiance']
 
     factor=np.pi/T_gs/Dgt
-    factor[W<=1700]=gaussian_filter(factor[W<=1700],various.fwhm2sigma(10))
-    factor[W>1700]=gaussian_filter(factor[W>1700],various.fwhm2sigma(2))
+    factor[W<=1700]=gaussian_filter(factor[W<=1700],surehyp.various.fwhm2sigma(10))
+    factor[W>1700]=gaussian_filter(factor[W>1700],surehyp.various.fwhm2sigma(2))
 
     return factor
 
@@ -782,6 +787,7 @@ def computeLtoE(L,bands,df,df_gs):
 
     #get the factor to convert TOA radiance to surface reflectance and return the reflectance
     factor=computeLtoEfactor(df,df_gs)
+    W=df['Wvlgth'].values
     fun=interpolate.interp1d(W,factor)
     factor=fun(bands)
     R=factor*L
@@ -795,13 +801,13 @@ def saveRimage(R,metadata,pathOut,scaleFactor=100):
     scaleFactor: scaling factor to multiply the reflectance with. Allows for saving the array in unsigned int16 format to save space
     '''
 
-    scale=scaleFactor*np.ones(R.shape[2])
+    scale=scaleFactor*np.ones(R.shape[2]).astype(int)
     metadata['scale factor']=scale.tolist()
     R=R*scaleFactor
     R[R>65535]=65535
     R[R<0]=0
     R=R.astype(np.uint16)
-    envi.save_image(pathOut,R,metadata=metadata,force=True)
+    envi.save_image(pathOut+'.hdr',R,metadata=metadata,force=True)
 
 def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
     '''
@@ -821,8 +827,8 @@ def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
     W=df['Wvlgth'].values
     E=df['Extraterrestrial_spectrm'].values
     factor=np.pi/(E*np.cos(thetaV))
-    factor[W<=1700]=gaussian_filter(factor[W<=1700],various.fwhm2sigma(10))
-    factor[W>1700]=gaussian_filter(factor[W>1700],various.fwhm2sigma(2))
+    factor[W<=1700]=gaussian_filter(factor[W<=1700],surehyp.various.fwhm2sigma(10))
+    factor[W>1700]=gaussian_filter(factor[W>1700],surehyp.various.fwhm2sigma(2))
     f=interpolate.interp1d(W,factor)
     factor=f(bands)
     return factor
@@ -949,7 +955,7 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
                     )
 
         try:
-            os.mkdir('./elev/')
+            Path('./elev/').mkdir(parents=True, exist_ok=True)
         except:
             print('could not create folder ./elev/')
             raise
@@ -959,6 +965,9 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
     for f in os.listdir('.'):
         if '.zip' in f:
             os.remove(os.path.join('.',f))
+    
+    return './elev/SRTMGL1_003.elevation.tif'
+
 
 def reprojectImage(im,dst_crs,pathOut):
     '''
@@ -990,7 +999,8 @@ def reprojectImage(im,dst_crs,pathOut):
                 resampling=Resampling.nearest,
                 num_threads=10,
                 warp_mem_limit=1024)
-        dst.close()
+        dst.close() 
+    return pathOut
 
 def get_target_rows_cols(im1,imSecondary, maskBand=40):
     '''
@@ -1003,15 +1013,15 @@ def get_target_rows_cols(im1,imSecondary, maskBand=40):
     rowsSecondary, colsSecondary: indexes of the pixels in imSecondary that are associated with rows, cols in im1
     '''
 
-    t0=im1.transform
+    T0=im1.transform
     array1=im1.read()
-    array1=np.moveaxis(ar1,0,2)
+    array1=np.moveaxis(array1,0,2)
     
     # All rows and columns
     cols, rows = np.meshgrid(np.arange(array1.shape[1]), np.arange(array1.shape[0]))
 
     cols=cols[array1[:,:,maskBand]>=0]
-    rows=rows[array1[:,:,]>=0]
+    rows=rows[array1[:,:,maskBand]>=0]
     xs,ys=rasterio.transform.xy(T0,rows,cols)
 
     #get coordinates row/cols in the landcover map
@@ -1098,8 +1108,8 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
                 Dgt=df['Global_tilted_irradiance']
                 T_gs=df_gs['Direct_rad_transmittance']
                 tmp=np.pi/T_gs/Dgt
-                tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],various.fwhm2sigma(10))
-                tmp[W>1700]=gaussian_filter1d(tmp[W>1700],various.fwhm2sigma(2))
+                tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],surehyp.various.fwhm2sigma(10))
+                tmp[W>1700]=gaussian_filter1d(tmp[W>1700],surehyp.various.fwhm2sigma(2))
                 data[i,j,k,:]=tmp
     W=df['Wvlgth'].values
 
@@ -1136,7 +1146,9 @@ def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev
 
     im1=rasterio.open(path_im1)
     im2=rasterio.open(path_elev)
-    reprojectImage(im2,im1.profile['crs'],path_elev_out)
+    path_elev_out = reprojectImage(im2,im1.profile['crs'],path_elev_out)
+
+    return path_elev_out
 
 def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):
     '''
