@@ -33,17 +33,27 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 For ease of installation, it is recommended to install `pyhdf`,`rasterio`, `richdem` and `gdal` with `conda`:
 
-> conda install pyhdf rasterio richdem gdal
+```
+conda install pyhdf rasterio richdem gdal
+```
 
 Then, SUREHYP can be installed with `pip`: *the pip package is WIP*
 
-> python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple surehyp-test
+```
+python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple surehyp-test
+```
 
-[//]: <> python -m pip install SUREHYP
+<!---
+```
+python -m pip install SUREHYP
+```
+-->
 
 An extra cython library may be compiled to allow usage of a 3D interpolation function faster than Scipy's. To install it, download [surehyp_cython_extra](https://github.com/tmiraglio/surehyp_cython_extra), navigate to the downloaded folder and run:
 
-> python setup.py install
+```
+python setup.py install
+```
 
 If this extra library is not installed, the program will revert to Scipy functions.
 
@@ -55,11 +65,15 @@ To obtain SMARTS, refer to [this section](https://github.com/tmiraglio/SUREHYP#t
 
 Functions for preprocessing the radiance data can be called with
 
-> import surehyp.preprocess
+```
+import surehyp.preprocess
+```
 
 Functions dedicated to the atmospheric correction can be called with
 
-> import surehyp.atmoCorrection
+```
+import surehyp.atmoCorrection
+```
 
 ### Preprocessing
 
