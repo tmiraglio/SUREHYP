@@ -495,7 +495,6 @@ def alignImages(im1, im2,MAX_FEATURES=10000,GOOD_MATCH_PERCENT=0.25,bandIm1=33,b
         matches=sorted(matches,key=lambda x: x.distance, reverse=False)
     except:
         matches.sort(key=lambda x: x.distance, reverse=False)
-
     # Remove not so good matches
     numGoodMatches = int(len(matches) * GOOD_MATCH_PERCENT)
     matches = matches[:numGoodMatches]

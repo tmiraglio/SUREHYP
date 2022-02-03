@@ -23,11 +23,10 @@ import pandas as pd
 import subprocess
 
 import surehyp.various
+import surehyp.preprocess
 
 
-
-def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None):
-    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
+def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None,IALBDX=1,RHOX=None,smartsVersion='smarts298',smartsExecutable='smarts2981_PC_64bit.exe'):
     '''
     see SMARTS documentation for details regarding the inputs and outputs
     
@@ -112,8 +111,8 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     VISI=str(VISI)
     if TAU550==None:
         TAU550=str(np.round(np.exp(-3.2755-0.15078*float(ALTIT)),5))
-    IALBDX='17'
-    RHOX=None
+    IALBDX=str(IALBDX)
+    RHOX=str(RHOX)
     ITILT=str(ITILT)
     IALBDG=IALBDX
     TILT=str(TILT)
@@ -161,11 +160,11 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     LONGIT=str(LONGIT)
     DSTEP=None
 
-    output=smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP)
+    output=smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP,smartsVersion=smartsVersion,smartsExecutable=smartsExecutable)
 
     return output
 
-def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP):
+def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP,smartsVersion='smarts298',smartsExecutable='smarts2981_PC_64bit.exe'):
 
     # Check if SMARTSPATH environment variable exists and change working
     # directory if it does.
@@ -175,23 +174,23 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         os.chdir(os.environ['SMARTSPATH'])
 
     try:
-        os.remove('smarts298.inp.txt')
+        os.remove(smartsVersion+'.inp.txt')
     except:
         pass
     try:
-        os.remove('smarts298.out.txt')
+        os.remove(smartsVersion+'.out.txt')
     except:
         pass
     try:
-        os.remove('smarts298.ext.txt')
+        os.remove(smartsVersion+'.ext.txt')
     except:
         pass
     try:
-        os.remove('smarts298.scn.txt')
+        os.remove(smartsVersion+'.scn.txt')
     except:
         pass
 
-    f = open('smarts298.inp.txt', 'w')
+    f = open(smartsVersion+'.inp.txt', 'w')
 
     IOTOT = len(IOUT.split())
 
@@ -430,7 +429,7 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
 
     ## Run SMARTS 2.9.5
     #dump = os.system('smarts295bat.exe')
-    commands = ['smarts2981_PC_64bit.exe']
+    commands = [smartsExecutable]
     command = None
     for cmd in commands:
         if os.path.exists(cmd):
@@ -445,22 +444,22 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         p.wait()
 
         ## Read SMARTS 2.9.5 Output File
-        data = pd.read_csv('smarts298.ext.txt', delim_whitespace=True)
+        data = pd.read_csv(smartsVersion+'.ext.txt', delim_whitespace=True)
 
     try:
-        os.remove('smarts298.inp.txt')
+        os.remove(smartsVersion+'.inp.txt')
     except:
         pass #     print("")
     try:
-        os.remove('smarts298.out.txt')
+        os.remove(smartsVersion+'.out.txt')
     except:
         pass #     print("")
     try:
-        os.remove('smarts298.ext.txt')
+        os.remove(smartsVersion+'.ext.txt')
     except:
         pass #     print("")
     try:
-        os.remove('smarts298.scn.txt')
+        os.remove(smartsVersion+'.scn.txt')
     except:
         pass #     print("")
 
@@ -563,21 +562,27 @@ def getImageAndParameters(path):
     
     return L,bands,fwhms,processing_metadata,metadata
 
-def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon):
+def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID='JAXA/ALOS/AW3D30/V3_2',elevationName='DSM'):
     '''
     UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right
     lon, lat: longitude, latitude
     units in decimal degrees
+    demID: name of the GEE dataset
+    elevationName: name of the band correspond to elevation
 
     returns the average site elevation in km using data from GEE
     '''
 
+    numPixels=1
 
-    dem = ee.Image('USGS/SRTMGL1_003');
-    dem=dem.select('elevation')
-    region=ee.Geometry.Polygon([[[UL_lon,UL_lat],[UR_lon,UR_lat],[LR_lon,LR_lat],[LL_lon,LL_lat]]],None,False)
-    elev=dem.reduceRegion(reducer=ee.Reducer.mean(),geometry=region,scale=30)
-    return elev.getInfo()['elevation']*1e-3
+    DEM = ee.ImageCollection(demID) #kg/m2
+    DEM=DEM.select(elevationName)
+    coord=ee.Geometry.Point(np.mean([UL_lon,UR_lon,LL_lon,LR_lon]),np.mean([UL_lat,UR_lat,LL_lat,LR_lat]))
+    try:
+        altit=DEM.mosaic().sample(region=coord,numPixels=numPixels,scale=1000).getInfo()['features'][0]['properties'][elevationName]
+    except:
+        raise
+    return altit*1e-3
 
 def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imass=3,io3=0,ialt=0,o3=3):
     '''
@@ -616,7 +621,10 @@ def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imas
 
         W=df['Wvlgth']
         E=df['Extraterrestrial_spectrm']
-        Dft=df['Total_Diffuse_tilt_irrad']
+        try:
+            Dft=df['Difuse_tilted_irradiance']
+        except:
+            Dft=df['Total_Diffuse_tilt_irrad']
         T=df['Direct_rad_transmittance']
         T_gs=df_gs['Direct_rad_transmittance']
 
@@ -720,7 +728,7 @@ def smoothing(R,width=3,order=1):#,processO2=False,bands=None):
 
     return savgol_filter(R,width,order)
 
-def computeLtoEfactor(df,df_gs):
+def computeLtoRfactor(df,df_gs):
     '''
     df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
     df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
@@ -736,7 +744,10 @@ def computeLtoEfactor(df,df_gs):
     T_gs=df_gs['RayleighScat_trnsmittnce']*df_gs['Ozone_totl_transmittance']*df_gs['Trace_gas__transmittance']*df_gs['WaterVapor_transmittance']*df_gs['Mixed_gas__transmittance']*df_gs['Aerosol_tot_transmittnce']
     Dnt=df['Direct_normal_irradiance']
     Dtt=df['Direct_tilted_irradiance']
-    Dft=df['Total_Diffuse_tilt_irrad']
+    try:
+        Dft=df['Difuse_tilted_irradiance']
+    except:
+        Dft=df['Total_Diffuse_tilt_irrad']
     Dgt=df['Global_tilted_irradiance']
 
     factor=np.pi/T_gs/Dgt
@@ -774,7 +785,7 @@ def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,l
         wv=wvGEE
     return wv,o3
 
-def computeLtoE(L,bands,df,df_gs):
+def computeLtoR(L,bands,df,df_gs):
     '''
     bands: wavelengths of each band -- (b,) array
     L: at satellite radiance array -- (m,n,b) array
@@ -786,7 +797,7 @@ def computeLtoE(L,bands,df,df_gs):
     '''
 
     #get the factor to convert TOA radiance to surface reflectance and return the reflectance
-    factor=computeLtoEfactor(df,df_gs)
+    factor=computeLtoRfactor(df,df_gs)
     W=df['Wvlgth'].values
     fun=interpolate.interp1d(W,factor)
     factor=fun(bands)
@@ -833,7 +844,7 @@ def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
     factor=f(bands)
     return factor
 
-def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV):
+def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV,cirrusReflectanceThreshold=1):
     '''
     bands: wavelengths of each band -- (b,) array
     A: radiance array -- (m,n,b) array
@@ -843,7 +854,8 @@ def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV):
     day: DD
     doy: Day Of Year
     thetaV: satellite zenith angle in radians
-    
+    cirrusReflectanceThreshold: TOA reflectance below which pixels at 1380 um  are considered to be 0 even though they are not
+
     return the cirrus-removed radiance array -- (m,n,b) array
     '''
     
@@ -856,95 +868,152 @@ def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV):
     A=A.astype(np.float32)
 
     Rcirrus=A[:,:,np.argmin(np.abs(bands-1380))]
-    r1380=Rcirrus[Rcirrus>0]
-    rlambda=A[Rcirrus>0,:]
+    r1380=Rcirrus[Rcirrus>=cirrusReflectanceThreshold] #if Reflectance TOA [0-100]
+    Rcirrus[Rcirrus<cirrusReflectanceThreshold]=0
 
-    xs=[]
-    ys=[]
-    for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.25):
-        cond=np.logical_and(r1380>=i,r1380<i+1)
-        tmp1380=r1380[cond]
-        tmpLambda=rlambda[cond,:]
-        if not len(tmpLambda)==0:
-            xs.append(np.amin(tmpLambda,axis=0))
-            ys.append(tmp1380[np.argmin(tmpLambda,axis=0)])
-    xs=np.asarray(xs)
-    ys=np.asarray(ys)
+    if r1380.size>50: #if not enough points, considers that the computation can not take place
+        rlambda=A[Rcirrus>cirrusReflectanceThreshold,:]
 
-    Ka=[]
-    for b in np.arange(xs.shape[1]):
-        xs_trim=xs[:,b].copy()
-        ys_trim=ys[:,b].copy()
-        if xs_trim.size>6:
-            diff=np.diff(xs_trim)
-            ys_trim=ys_trim[1:]
-            xs_trim=xs_trim[1:]
-            ys_trim=ys_trim[diff>0.01]
-            xs_trim=xs_trim[diff>0.01]
+        xs=[]
+        ys=[]
+        for i in np.arange(np.floor(np.amin(r1380)),np.ceil(np.amax(r1380)),0.25):
+            cond=np.logical_and(r1380>=i,r1380<i+1)
+            tmp1380=r1380[cond]
+            tmpLambda=rlambda[cond,:]
+            if not len(tmpLambda)==0:
+                xs.append(np.amin(tmpLambda,axis=0))
+                ys.append(tmp1380[np.argmin(tmpLambda,axis=0)])
+        xs=np.asarray(xs)
+        ys=np.asarray(ys)
 
-            if xs_trim.size>5:
-                p=np.polyfit(xs_trim,ys_trim,1)
-                Ka.append(p[0])
+        Ka=[]
+        for b in np.arange(xs.shape[1]):
+            xs_trim=xs[:,b].copy()
+            ys_trim=ys[:,b].copy()
+            if xs_trim.size>6:
+                diff=np.diff(xs_trim)
+                ys_trim=ys_trim[1:]
+                xs_trim=xs_trim[1:]
+                ys_trim=ys_trim[diff>0.5]
+                xs_trim=xs_trim[diff>0.5]
+
+                if xs_trim.size>5:
+                    p=np.polyfit(xs_trim,ys_trim,1)
+                    Ka.append(p[0])
+                else:
+                    Ka.append(10000)
             else:
                 Ka.append(10000)
-        else:
-            Ka.append(10000)
-    Ka=np.asarray(Ka).astype(np.float32)
-    Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
-    A=A-Rcirrus/Ka
-    A=A/factor
-    A[A<=0]=0
+        Ka=np.asarray(Ka).astype(np.float32)
+        Rcirrus=np.moveaxis(np.tile(Rcirrus,(xs.shape[1],1,1)),0,2)
+        A=A-Rcirrus/Ka
+        A=A/factor
+        A[A<=0]=0
+    else:
+        A=A/factor
+        A[A<=0]=0
     return A
 
-def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
+def splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,elev,prefix='elev'):
+    '''
+    if the GEE image to download is too large, divide it in four and download each subimage
+    recursive function if the subimage is still too large
+    
+    UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right
+    lon, lat: longitude, latitude
+    units in decimal degrees
+    elev: GEE image to download
+    prefix: folder names (they will appear as 'prefix_*')
+
+    returns a list of the folders containing the subimages
+    '''
+    print('splitting download of '+prefix)
+
+
+    lon_min=np.amin([UL_lon-0.05,UR_lon-0.05,LR_lon-0.05,LL_lon-0.05])
+    lon_max=np.amax([UL_lon+0.05,UR_lon+0.05,LR_lon+0.05,LL_lon+0.05])
+    lat_min=np.amin([UL_lat-0.05,UR_lat-0.05,LR_lat-0.05,LL_lat-0.05])
+    lat_max=np.amax([UL_lat+0.05,UR_lat+0.05,LR_lat+0.05,LL_lat+0.05])
+
+    lon_mid=(lon_min+lon_max)/2
+    lat_mid=(lat_min+lat_max)/2
+   
+    folders=[]
+    try:
+        region=ee.Geometry.Polygon([[[lon_min,lat_max],[lon_mid,lat_max],[lon_mid, lat_mid],[lon_min,lat_mid]]],None,False)
+        elev0=elev.clip(region)
+        geetools.batch.image.toLocal(elev0,prefix+'_0',scale=20,region=region)
+        folders.append(prefix+'_0')
+    except:
+        folders.extend(splitDEMdownload(lon_min,lat_max,lon_mid,lat_max,lon_mid,lat_mid,lon_min,lat_mid,elev,prefix=prefix+'_0'))
+
+    try:
+        region=ee.Geometry.Polygon([[[lon_mid,lat_max],[lon_max,lat_max],[lon_max, lat_mid],[lon_mid,lat_mid]]],None,False)
+        elev1=elev.clip(region)
+        geetools.batch.image.toLocal(elev1,prefix+'_1',scale=20,region=region)
+        folders.append(prefix+'_1')
+    except:
+        folders.extend(splitDEMdownload(lon_mid,lat_max,lon_max,lat_max,lon_max,lat_mid,lon_mid,lat_mid,elev,prefix=prefix+'_1'))
+
+    try:
+        region=ee.Geometry.Polygon([[[lon_mid,lat_mid],[lon_max,lat_mid],[lon_max, lat_min],[lon_mid,lat_min]]],None,False)
+        elev2=elev.clip(region)
+        geetools.batch.image.toLocal(elev2,prefix+'_2',scale=20,region=region)
+        folders.append(prefix+'_2')
+    except:
+        folders.extend(splitDEMdownload(lon_mid,lat_mid,lon_max,lat_mid,lon_max,lat_min,lon_mid,lat_min,elev,prefix=prefix+'_2'))
+
+    try:
+        region=ee.Geometry.Polygon([[[lon_min,lat_mid],[lon_mid,lat_mid],[lon_mid, lat_min],[lon_min,lat_min]]],None,False)
+        elev3=elev.clip(region)
+        geetools.batch.image.toLocal(elev3,prefix+'_3',scale=20,region=region)
+        folders.append(prefix+'_3')
+    except:
+        folders.extend(splitDEMdownload(lon_min,lat_mid,lon_mid,lat_mid,lon_mid,lat_min,lon_min,lat_min,elev,prefix=prefix+'_3'))
+    return folders
+
+def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID='JAXA/ALOS/AW3D30/V3_2',elevationName='DSM'):
     '''
     UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right
     lon, lat: longitude, latitude
     units in decimal degrees
+    demID: name of the GEE dataset
+    elevationName: name of the band correspond to elevation
 
     downloads the DEM image for the region delimited by the latitudes and longitudes from GEE
     '''
-
-    elev = ee.Image('USGS/SRTMGL1_003');
-    elev=elev.select('elevation')
-    #slope=ee.Terrain.slope(elev)
-    #aspect=ee.Terrain.aspect(elev)
-
+    try:
+        elev = ee.Image(demID);
+        elev= elev.select(elevationName)
+        elev.getInfo() #will fail if not an image
+    except:
+        dem = ee.ImageCollection(demID);
+        dem = dem.select(elevationName)
+        elev=dem.mosaic()
+    
     try: # download can fail if image is too large, so it may be necessary to download it by parts and reassemble everything
         region=ee.Geometry.Polygon([[[UL_lon-0.05,UL_lat+0.05],[UR_lon+0.05,UR_lat+0.05],[LR_lon+0.05,LR_lat-0.05],[LL_lon-0.05,LL_lat-0.05]]],None,False)
         elev=elev.clip(region)
-        geetools.batch.image.toLocal(elev,'elev',scale=30,region=region)
+        geetools.batch.image.toLocal(elev,'elev',region=region,scale=20)
     except:
-        elev = ee.Image('USGS/SRTMGL1_003');
-        elev=elev.select('elevation')
-        lon_min=np.amin([UL_lon-0.05,UR_lon-0.05,LR_lon-0.05,LL_lon-0.05])
-        lon_max=np.amax([UL_lon+0.05,UR_lon+0.05,LR_lon+0.05,LL_lon+0.05])
-        lat_min=np.amin([UL_lat-0.05,UR_lat-0.05,LR_lat-0.05,LL_lat-0.05])
-        lat_max=np.amax([UL_lat+0.05,UR_lat+0.05,LR_lat+0.05,LL_lat+0.05])
+        try:
+            elev = ee.Image(demID);
+            elev= elev.select(elevationName)
+            elev.getInfo() #will fail if not an image
+        except:
+            dem = ee.ImageCollection(demID);
+            dem = dem.select(elevationName)
+            elev=dem.mosaic()
 
-        lon_mid=(lon_min+lon_max)/2
-        lat_mid=(lat_min+lat_max)/2
+        folders=splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,elev)    
+        print(folders)
         
-        region=ee.Geometry.Polygon([[[lon_min,lat_max],[lon_mid,lat_max],[lon_mid, lat_mid],[lon_min,lat_mid]]],None,False)
-        elev0=elev.clip(region)
-        geetools.batch.image.toLocal(elev0,'elev0',scale=30,region=region)
-        
-        region=ee.Geometry.Polygon([[[lon_mid,lat_max],[lon_max,lat_max],[lon_max, lat_mid],[lon_mid,lat_mid]]],None,False)
-        elev1=elev.clip(region)
-        geetools.batch.image.toLocal(elev1,'elev1',scale=30,region=region)
-
-        region=ee.Geometry.Polygon([[[lon_mid,lat_mid],[lon_max,lat_mid],[lon_max, lat_min],[lon_mid,lat_min]]],None,False)
-        elev2=elev.clip(region)
-        geetools.batch.image.toLocal(elev2,'elev2',scale=30,region=region)
-
-        region=ee.Geometry.Polygon([[[lon_min,lat_mid],[lon_mid,lat_mid],[lon_mid, lat_min],[lon_min,lat_min]]],None,False)
-        elev3=elev.clip(region)
-        geetools.batch.image.toLocal(elev3,'elev3',scale=30,region=region)
-
         src_files_to_mosaic=[]
-        for elev in ['elev0','elev1','elev2','elev3']:
-            src=rasterio.open('./'+elev+'/SRTMGL1_003.elevation.tif')
-            src_files_to_mosaic.append(src)
+        for elev in folders:
+            for f in os.listdir('./'+elev+'/'):
+                if 'tif' in f:
+                    src=rasterio.open('./'+elev+'/'+f)
+                    src_files_to_mosaic.append(src)
         mosaic, out_trans=merge(src_files_to_mosaic)
         out_meta=src.meta.copy()
         out_meta.update({"driver": "GTiff",
@@ -954,20 +1023,19 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat):
                         }
                     )
 
-        try:
-            Path('./elev/').mkdir(parents=True, exist_ok=True)
-        except:
-            print('could not create folder ./elev/')
-            raise
-        with rasterio.open('./elev/SRTMGL1_003.elevation.tif', "w", **out_meta) as dest:
+        Path('./elev/').mkdir(parents=True, exist_ok=True)
+
+        with rasterio.open('./elev/'+f, "w", **out_meta) as dest:
             dest.write(mosaic)
+            dest.close()
 
     for f in os.listdir('.'):
         if '.zip' in f:
             os.remove(os.path.join('.',f))
-    
-    return './elev/SRTMGL1_003.elevation.tif'
-
+    for f in os.listdir('./elev/'):
+        if ('.tif' in f) and ('tmp' not in f):
+            fileName=f
+    return './elev/'+fileName
 
 def reprojectImage(im,dst_crs,pathOut):
     '''
@@ -999,7 +1067,7 @@ def reprojectImage(im,dst_crs,pathOut):
                 resampling=Resampling.nearest,
                 num_threads=10,
                 warp_mem_limit=1024)
-        dst.close() 
+            dst.close() 
     return pathOut
 
 def get_target_rows_cols(im1,imSecondary, maskBand=40):
@@ -1064,7 +1132,7 @@ def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
     arraySecondaryNew=np.reshape(arraySecondaryNew,(array1.shape[0],array1.shape[1]))
     return arraySecondaryNew
 
-def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,WV,AbO3,year,month,day,hour,doy,satelliteZenith,satelliteAzimuth,L,bands,IH2O=0,IO3=0,IALT=0):
+def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,WV,AbO3,year,month,day,hour,doy,zenith,azimuth,satelliteZenith,satelliteAzimuth,L,bands,IH2O=0,IO3=0,IALT=0,IALBDX=1,RHOX=0,rho_background=0):
     '''
     altitMap: elevation map of the study site (km) -- (m,n) array
     tiltMap: slope tilt angle map (degree) -- (m,n) array
@@ -1088,8 +1156,14 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
 
     #prepare the iteration vectors for the LUT building
     ALTITS=np.arange(np.maximum(0,np.floor(np.nanmin(altitMap))),np.maximum(np.ceil(np.nanmax(altitMap))+stepAltit,np.floor(np.nanmin(altitMap))+2*stepAltit),stepAltit)
-    TILTS=np.arange(np.floor(np.nanmin(tiltMap)),np.maximum(np.ceil(np.nanmax(tiltMap))+stepTilt,np.floor(np.nanmin(tiltMap))+2*stepTilt),stepTilt) #decimal degree
-    WAZIMS=np.arange(np.floor(np.nanmin(wazimMap)),np.maximum(np.ceil(np.nanmax(wazimMap))+stepWazim,np.floor(np.nanmin(wazimMap))+stepWazim),stepWazim)
+    TILTS=np.arange(np.maximum(0,np.floor(np.nanmin(tiltMap))),np.maximum(np.ceil(np.nanmax(tiltMap))+stepTilt,np.floor(np.nanmin(tiltMap))+2*stepTilt),stepTilt) #decimal degree
+    WAZIMS=np.arange(np.maximum(0,np.floor(np.nanmin(wazimMap))),np.maximum(np.ceil(np.nanmax(wazimMap))+stepWazim,np.floor(np.nanmin(wazimMap))+stepWazim),stepWazim)
+    TILTS=TILTS[TILTS<=90]
+    WAZIMS=WAZIMS[WAZIMS<=360]
+    ALTITS=ALTITS[ALTITS<=9]
+    TILTS=TILTS[TILTS>=0]
+    WAZIMS=WAZIMS[WAZIMS>=0]
+    ALTITS=ALTITS[ALTITS>=0]
 
     #first dry run to get W
     df=runSMARTS(ALTIT=0,ITILT='1',TILT=0,WAZIM=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy))
@@ -1099,15 +1173,48 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     xv,yv,zv=np.meshgrid(*points,indexing='ij')
     data=np.zeros((xv.shape[0],xv.shape[1],xv.shape[2],len(W)))
 
+    print(np.unique(ALTITS))
+    print(np.unique(TILTS))
+    print(np.unique(WAZIMS))
+
     for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
+        df=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=hour,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+        df_gs=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+        
+        E=df['Extraterrestrial_spectrm'].astype(np.float32)
+        T_sg=df['Direct_rad_transmittance'].astype(np.float32)
+        Dft=df['Total_Diffuse_tilt_irrad'].astype(np.float32)
+        T_gs=df_gs['Direct_rad_transmittance'].astype(np.float32)
+        Dft=df['Total_Diffuse_tilt_irrad']
+        
         for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
             for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
-                df=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
-                df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3)
+                #compute solar illumination angles betai
+                tilt=yv[i,j,k]*np.pi/180
+                wazim=zv[i,j,k]*np.pi/180
+                Vslope=np.asarray([np.sin(tilt)*np.cos(wazim),np.sin(tilt)*np.sin(wazim),np.cos(tilt)])
+                Vsun=np.asarray([np.sin(zenith*np.pi/180)*np.cos(azimuth*np.pi/180),np.sin(zenith*np.pi/180)*np.sin(azimuth*np.pi/180),np.cos(zenith*np.pi/180)])
+                betai=np.arccos(np.dot(Vslope,Vsun)/np.linalg.norm(Vslope)/np.linalg.norm(Vsun))
+                betai=betai.astype(np.float32)
+                if np.abs(betai)>np.pi/2:
+                    betai=np.pi/2
+               
+                if betai<45*np.pi/180: 
+                    '''
+                    for low angles where direct illumination is considerably more important than diffuse illumination
+                    this is not the exact formula used by SMARTS, however difference is negligible for angles <45 degrees
+                    when the SMARTS will be known, is should accelerate this step significantly by not having to run SMARTS over and over
+                    '''
+                    tmp= ( np.pi/T_gs/(T_sg*E*np.cos(betai) + Dft*(1+np.cos(tilt))/2 + (T_sg*E+Dft)*rho_background*(1-np.cos(tilt))/2) ) 
+                else: #for high angles, e.g. indirect illumination, compute with SMARTS 
+                    df=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=hour,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+                    df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
 
-                Dgt=df['Global_tilted_irradiance']
-                T_gs=df_gs['Direct_rad_transmittance']
-                tmp=np.pi/T_gs/Dgt
+                    Dgt=df['Global_tilted_irradiance']
+                    T_gs=df_gs['Direct_rad_transmittance']
+
+                    tmp=np.pi/T_gs/(Dgt)
+
                 tmp[W<=1700]=gaussian_filter1d(tmp[W<=1700],surehyp.various.fwhm2sigma(10))
                 tmp[W>1700]=gaussian_filter1d(tmp[W>1700],surehyp.various.fwhm2sigma(2))
                 data[i,j,k,:]=tmp
@@ -1126,7 +1233,6 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
 
     R=np.zeros((L.shape[0]*L.shape[1],L.shape[2])).squeeze()
     Lflat=L.reshape((L.shape[0]*L.shape[1],L.shape[2]))
-
     for idxx in np.array_split(idx,100):
         values=np.stack((altitMap.flatten()[idxx],tiltMap.flatten()[idxx],wazimMap.flatten()[idxx]),axis=-1)
         M=interpFunction(values)
@@ -1135,7 +1241,8 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     R=R.reshape(L.shape)
     return R
 
-def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif'):
+
+def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev_out='./elev/tmp.tif',extension='.img'):
     '''
     path_im1: rasterio reference image
     path_elev: path of the image to reproject
@@ -1144,13 +1251,36 @@ def reprojectDEM(path_im1,path_elev='./elev/SRTMGL1_003.elevation.tif',path_elev
     reprojects the DEM image in the CRS of im1
     '''
 
-    im1=rasterio.open(path_im1)
+    im1=rasterio.open(path_im1+extension)
     im2=rasterio.open(path_elev)
+    try:
+        os.remove(path_elev_out)    
+    except:
+        pass
     path_elev_out = reprojectImage(im2,im1.profile['crs'],path_elev_out)
-
+    im1.close()
+    im2.close()
     return path_elev_out
 
-def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):
+def matchResolution(pathToIm1,path_elev='./elev/tmp.tif',path_out='./elev/tmp_blurred.tif',extension='.img') :
+    '''
+    pathToIm1: path to the reference image for which the DEM data needs to be extracted
+    path_elev: path to the DEM image
+    path_out: path to the degraded image
+    '''
+
+    im1=rasterio.open(pathToIm1+extension)
+    im2=rasterio.open(path_elev)
+    smoothing_std=im1.transform[0]/im2.transform[0]
+    elev=im2.read()
+    elev=gaussian_filter(elev,smoothing_std)
+  
+    with rasterio.open(path_out,'w',**im2.meta) as out:
+        out.write(elev)
+        out.close()
+    return path_out
+
+def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img'):
     '''
     pathToIm1: path to the reference image for which the DEM data needs to be extracted
     path_elev: path to the DEM image
@@ -1158,21 +1288,108 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif'):
     returns elevation, slope angle, and slope aspect (km, degree, degree) maps for im1 -- (m,n) arrays
     '''
 
-    im1=rasterio.open(pathToIm1)
-    im1_transform=im1.transform
+    im1=rasterio.open(pathToIm1+extension)
     ar1=im1.read()
     ar1=np.moveaxis(ar1,0,2)
-    rows1,cols1,rows2, cols2=get_target_rows_cols(im1,rasterio.open('./elev/tmp.tif')) #elev, slope and aspect all have the same projection
-    elev=extractSecondaryData(ar1,np.squeeze(rasterio.open(path_elev).read()),rows1,cols1,rows2, cols2)
+    im2=rasterio.open(path_elev)
+    meta=im2.meta
+    rows1,cols1,rows2, cols2=get_target_rows_cols(im1,im2) #elev, slope and aspect all have the same projection
+   
+    elev=np.squeeze(im2.read())
+    elev=extractSecondaryData(ar1,elev,rows1,cols1,rows2, cols2)
+
     elev[ar1[:,:,40]<=0]=np.nan
     elev=elev*1e-3
+    elev[elev<0]=np.nan
+    elev[elev>9]=np.nan
 
     slope=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='slope_degrees')
     slope=extractSecondaryData(ar1,slope,rows1,cols1,rows2, cols2)
+    
     slope[ar1[:,:,40]<=0]=np.nan
+    slope[slope<0]=np.nan
+    slope[slope>90]=np.nan
 
     wazim=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='aspect')
     wazim=extractSecondaryData(ar1,wazim,rows1,cols1,rows2, cols2)
     wazim[ar1[:,:,40]<=0]=np.nan
+    wazim[wazim<0]=np.nan
+    wazim[wazim>360]=np.nan
+
+
+    fig,ax=plt.subplots(1,3)
+    ax[0].imshow(elev)
+    ax[1].imshow(slope)
+    ax[2].imshow(wazim)
 
     return elev, slope, wazim
+
+def MM_topo_correction(R,bands,tiltMap,wazimMap,zenith,azimuth,correction='weak',g=0.2):
+    '''
+    MM correction as presented in Richter et al. (2009), with the parameters suggested in the ATCOR Theoretical background document v.9.1.1 
+    R: reflectance image -- (m,n,b) array
+    bands: wavelengths associated to the bands -- (b,) array
+    altitMap: elevation map of the study site (km) -- (m,n) array
+    tiltMap: slope tilt angle map (degree) -- (m,n) array
+    wazimMap: slope aspect map (degree) -- (m,n) array
+    zenith: sun zenith angle in degrees
+    azimuth: sun azimuth angle in degrees 
+    correction: strength of the correction
+    g: minimum value for the correction factor
+    '''
+    b_vals={'weak':[0.75,0.33],'strong':[0.75,1]}
+    
+    Vslope=np.asarray([np.sin(tiltMap)*np.cos(wazimMap),np.sin(tiltMap)*np.sin(wazimMap),np.cos(tiltMap)])
+    Vslope=np.moveaxis(Vslope,0,2)
+    
+    Vsun=np.asarray([np.sin(zenith)*np.cos(azimuth),np.sin(zenith)*np.sin(azimuth),np.cos(zenith)])
+
+    betai=np.arccos(np.dot(Vslope,Vsun)/np.linalg.norm(Vslope,axis=2)/np.linalg.norm(Vsun))
+
+    zenith=zenith*180/np.pi
+    if zenith<45:
+        betaT=zenith+20
+    elif (zenith>=45) and (zenith<=55):
+        betaT=zenith+15
+    else:
+        betaT=zenith+10
+    betaT=betaT*np.pi/180
+
+    b_veg=np.ones(bands.size)  
+    b_veg[bands<=720]=b_vals[correction][0]
+    b_veg[bands>720]=b_vals[correction][1]
+
+    b_soil=0.5
+
+    NDVI,_,_=surehyp.various.getNDVI(R,bands)
+
+
+    G=(np.cos(betai)/np.cos(betaT))
+    G[betai<betaT]=1
+    G=np.tile(G,(bands.size,1,1))
+    G=np.moveaxis(G,0,2)
+    G[NDVI>0.2]=np.power(G[NDVI>0.2],b_veg)
+    G[NDVI<0.2]=np.power(G[NDVI<0.2],b_soil)
+    G[G<g]=g
+    return R*G
+
+def writeAlbedoFile(R,bands,pathOut='./SMARTS2981-PC_Package/Albedo/Albedo.txt'):
+    '''
+    R: reflectance [0-100] -- (b,) array
+    bands: wavelengths associated to the bands -- (b,) array
+    pathOut: path of the SMARTS Albedo.txt file
+    '''
+    rho=R[R[:,:,40]>0,:]
+    rho=np.round(np.nanmedian(rho,axis=0),3)
+    col1=[bands[0]*1E-3,bands[-1]*1E-3,'Albedo']
+    b1=np.round(bands*1E-3,3)
+    col1.extend(b1.tolist())
+    col2=['','','']
+    r=rho*1e-2
+    r[r>1]=1
+    r=np.round(r,4)
+    col2.extend(r.tolist())
+    dico={'col1':col1,'col2':col2}
+    df=pd.DataFrame.from_dict(dico)
+    df.to_csv(pathOut,sep=' ',header=False,index=False)
+    return pathOut

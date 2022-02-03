@@ -13,31 +13,17 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 [various](./func/various.py) contains a variety of useful functions that may be called by the other files.  
 
-### Required packages
-
-- `cython`
-- `numpy`
-- `ee`
-- `geetools`
-- `matplotlib`
-- `spectral`
-- `scipy`
-- `pandas`
-- `opencv`
-- `pyhdf`
-- `scikit-learn`
-- `rasterio`
-- `richdem`
-
 ### Installation
 
-For ease of installation, it is recommended to install `pyhdf`,`rasterio`, `richdem` and `gdal` with `conda`:
+This package has been tested on Python 3.7.5 to 3.9.9.
+
+For ease of installation, it is recommended to install `pyhdf`, `rasterio`, `richdem` and `gdal` with `conda` before running the package's pip command:
 
 ```
 conda install pyhdf rasterio richdem gdal
 ```
 
-Then, SUREHYP can be installed with `pip`: *the pip package is WIP*
+Then, SUREHYP and all other packages can be installed with `pip`: *the pip package is WIP*
 
 ```
 python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple surehyp-test
@@ -118,7 +104,13 @@ This package uses SMARTS: Simple Model of the Atmospheric Radiative Transfer of 
 ### SMARTS 
 **Users can download SMARTS 2.9.5 from [NREL](https://www.nrel.gov/grid/solar-resource/smarts.html), or contact Dr. Christian A. Gueymard (Chris@SolarConsultingServices.com) to obtain the latest version available.**
 
-Users will have to update the path and the file names depending on their SMARTS version and installation folder in the functions `runSMARTS` and `smartsALL_original` of [atmoCorrection](./func/atmoCorretion.py). Please note that depending on the SMARTS version, some output variables from SMARTS may have different names and therefore need to be updated. The names used in the present script are those of SMARTS v.2.9.8.1.
+Users will have to update the path and the file names depending on their SMARTS version with extra keywords when calling the function `runSMARTS` of [atmoCorrection](./func/atmoCorretion.py). Please note that depending on the SMARTS version, some output variables from SMARTS may have different names and therefore need to be updated. The names used in the present script should work with both SMARTS v.2.9.5 and v.2.9.8.1.
+
+Users should add the path to their SMARTS installation at the start of their script:
+
+```
+os.environ['SMARTSPATH']='./path/to/smarts/folder/'
+```
 
 ### py-SMARTS 
 [py-SMARTS](https://github.com/NREL/pySMARTS) is shared under a BSD-3-Clause license:

@@ -4,13 +4,13 @@ import ee
 from functools import partial
 from multiprocessing import Pool
 import sys, os
+import pandas as pd
+from scipy import interpolate
 
 import surehyp.preprocess
 import surehyp.atmoCorrection
 
-def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut):
-    ee.Initialize()
-
+def preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,nameOut,destripingMethod='Pal',localDestriping=False,smileCorrectionOrder=2,checkSmile=False):    
     print('concatenate the L1T image')
     surehyp.preprocess.processImage(fname,pathToL1Timages,pathToL1TimagesFiltered)
 
@@ -30,20 +30,25 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     VNIR,SWIR=surehyp.preprocess.alignSWIR2VNIRpart1(VNIR,SWIR)
 
     print('desmiling')
-    VNIR=surehyp.preprocess.smileCorrectionAll(VNIR,2,check=False)
-    SWIR=surehyp.preprocess.smileCorrectionAll(SWIR,2,check=False)
+    VNIR=surehyp.preprocess.smileCorrectionAll(VNIR,smileCorrectionOrder,check=checkSmile)
+    SWIR=surehyp.preprocess.smileCorrectionAll(SWIR,smileCorrectionOrder,check=checkSmile)
 
-    print('destriping -  Pal et al. (2020)')
-    VNIR,nc=surehyp.preprocess.destriping_quadratic(VNIR)
-    VNIR=surehyp.preprocess.destriping_local(VNIR,nc)
-    SWIR,nc=surehyp.preprocess.destriping_quadratic(SWIR)
-    SWIR=surehyp.preprocess.destriping_local(SWIR,nc)
+    if destripingMethod=='Datt':
+        print('destriping - Datt (2003)')
+        VNIR=surehyp.preprocess.destriping(VNIR,'VNIR',0.11)
+        SWIR=surehyp.preprocess.destriping(SWIR,'SWIR',0.11)
+    elif destripingMethod=='Pal':
+        print('destriping -  Pal et al. (2020)')
+        VNIR,nc=surehyp.preprocess.destriping_quadratic(VNIR)
+        if localDestriping==True:
+            VNIR=surehyp.preprocess.destriping_local(VNIR,nc)
+        SWIR,nc=surehyp.preprocess.destriping_quadratic(SWIR)
+        if localDestriping==True:
+            SWIR=surehyp.preprocess.destriping_local(SWIR,nc)
+    else:
+        print('no destriping method selected -> no destriping')
 
-    #print('destriping - Datt (2003)')
-    #VNIR=surehyp.preprocess.destriping(VNIR,'VNIR',0.11)
-    #SWIR=surehyp.preprocess.destriping(SWIR,'SWIR',0.11)
-
-    print('aligning VNIR and SWIR, part 2')
+        print('aligning VNIR and SWIR, part 2')
     VNIR,SWIR=surehyp.preprocess.alignSWIR2VNIRpart2(VNIR,VNIRb,SWIR,SWIRb)
 
     print('assemble VNIR and SWIR')
@@ -56,15 +61,17 @@ def processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL
     arrayL1Rgeoreferenced, metadataGeoreferenced=surehyp.preprocess.georeferencing(arrayL1R,pathToL1TimagesFiltered,fname)
 
     print('save the processed image as an ENVI file')
-    surehyp.preprocess.savePreprocessedL1R(arrayL1Rgeoreferenced,wavelengths,fwhms,metadataGeoreferenced,pathToL1Rimages,pathToL1Rmetadata,metadata,fname,pathOut+fname+'_L1R_complete')
+    surehyp.preprocess.savePreprocessedL1R(arrayL1Rgeoreferenced,wavelengths,fwhms,metadataGeoreferenced,pathToL1Rimages,pathToL1Rmetadata,metadata,fname,pathOut+nameOut)
 
     for f in os.listdir(pathOut):
         if (fname in f) and ('_tmp' in f):
             os.remove(os.path.join(pathOut,f))
 
-def atmosphericCorrection(fname,pathOut):
+    return pathOut+nameOut
+
+def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTilt=15,stepWazim=15,demID='JAXA/ALOS/AW3D30/V3_2',elevationName='DSM',topo=False,smartsAlbedoFilePath='./SMARTS2981-PC_Package/Albedo/Albedo.txt'):
     print('open processed radiance image')
-    L,bands,fwhms,processing_metadata,metadata=surehyp.atmoCorrection.getImageAndParameters(pathOut+fname+'_L1R_complete')
+    L,bands,fwhms,processing_metadata,metadata=surehyp.atmoCorrection.getImageAndParameters(pathToRadianceImage)
 
     ####
     #get info from the processing metadata for clearer visualization in the input of the subsequent functions
@@ -105,51 +112,67 @@ def atmosphericCorrection(fname,pathOut):
     L,Lhaze=surehyp.atmoCorrection.darkObjectDehazing(L,bands)
 
     print('get average elevation of the scene from GEE')
-    altit=surehyp.atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon)
+    altit=surehyp.atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID=demID,elevationName=elevationName)
 
     print('get atmosphere content')
     wv,o3=surehyp.atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV)
-
 
     ########################################
     # Atmospheric correction -- flat surface
     print('obtain radiative transfer outputs')
     #get the atmosphere parameters for the sun-ground section using the image acquisition time to determine sun angle
-    df=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,SUNCOR=atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
+    df=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,ZENITH=zenith,AZIM=azimuth,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
     #get the atmosphere parameters for the ground-satellite section by setting the 'sun' (in SMARTS) at the satellite zenith position to get the transmittance over the correct optical path length
-    df_gs=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
+    df_gs=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
 
     print('compute radiance to reflectance')
-    R=surehyp.atmoCorrection.computeLtoE(L,bands,df,df_gs)
+    R=surehyp.atmoCorrection.computeLtoR(L,bands,df,df_gs)
 
-    print('save the reflectance image')
-    surehyp.atmoCorrection.saveRimage(R,metadata,pathOut+fname+'_Reflectance_flat')
+    if topo==False:
+        print('save the reflectance image')
+        surehyp.atmoCorrection.saveRimage(R,metadata,pathToOutImage)
+    else:
+        #######################################
+        #atmospheric correction -- rough terrain
+        print('write Albedo.txt file for SMARTS')
+        pathToAlbedoFile=surehyp.atmoCorrection.writeAlbedoFile(R,bands,pathOut=smartsAlbedoFilePath)
 
-    #######################################
-    #atmospheric correction -- rough terrain
-    print('download DEM images from GEE')
-    path_to_dem = surehyp.atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat)
+        print('get scene background reflectance')
+        sp=pd.read_csv(pathToAlbedoFile,header=3,sep='\s+')
+        w=sp.values[:,0]
+        r=sp.values[:,1]
+        f=interpolate.interp1d(w,r,bounds_error=False,fill_value='extrapolate')
+        rho_background=f(df['Wvlgth']*1E-3)
 
-    print('reproject DEM images')
-    path_to_reprojected_dem = surehyp.atmoCorrection.reprojectDEM(pathOut+fname+'_L1R_complete.img',path_elev=path_to_dem)
+        print('download DEM images from GEE')
+        path_to_dem = surehyp.atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID=demID,elevationName=elevationName)
 
-    print("extract the data corresponding to the Hyperion image's pixels")
-    elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathOut+fname+'_L1R_complete.img',path_elev=path_to_reprojected_dem)
+        print('reproject DEM images')
+        path_to_reprojected_dem = surehyp.atmoCorrection.reprojectDEM(pathToRadianceImage,path_elev=path_to_dem)
 
-    #define the steps of the LUT
-    stepAltit=2
-    stepTilt=45 #15#there is barely any difference in the results using 15 degrees or 7.5 degrees (less than 1% of relative reflectance difference)
-    stepWazim=45 #15
+        print('resampling')
+        path_elev=surehyp.atmoCorrection.matchResolution(pathToRadianceImage,path_elev=path_to_reprojected_dem)
 
-    print('computing the LUT for the rough terrain correciton')
-    R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,WV=wv,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands)
+        print("extract the data corresponding to the Hyperion image's pixels")
+        elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_to_reprojected_dem)
 
-    print('save the reflectance image')
-    surehyp.atmoCorrection.saveRimage(R,metadata,pathOut+fname+'_Reflectance_topo')
+        print('computing the LUT for the rough terrain correction')
+        R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,WV=wv,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)
+
+        print('MM topography correction')
+        R=surehyp.atmoCorrection.MM_topo_correction(R,bands,slope*np.pi/180,wazim*np.pi/180,zenith*np.pi/180,azimuth*np.pi/180)
+
+        print('save the reflectance image')
+        surehyp.atmoCorrection.saveRimage(R,metadata,pathToOutImage)
+
+    return pathToOutImage
+
 
 if __name__ == '__main__':
 
     ee.Initialize()
+    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
+    
 
     pathToL1Rmetadata='./METADATA/METADATA.csv'
 
@@ -159,8 +182,8 @@ if __name__ == '__main__':
     pathToL1TimagesFiltered="./L1T/filteredImages/"
 
     pathOut='./OUT/'
-
-    fnames=['EO1H0430332014136110P3']
+    fname='EO1H0430332014136110P3'
+    nameOut=fname+'_reflectance'
 
     ### IF MULTITHREADING -- example 
     #preprocessing
@@ -169,9 +192,7 @@ if __name__ == '__main__':
     #    print('pooling the preprocessing')
     #    pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
 
-    for fname in fnames:
-        processImage(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut)
+    pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test')
 
-    for fname in fnames:
-        atmosphericCorrection(fname,pathOut)
+    atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
 

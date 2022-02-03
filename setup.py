@@ -39,7 +39,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/guides/single-sourcing-package-version/
-    version='0.9.2.2',  # Required
+    version='0.9.3',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -66,7 +66,7 @@ setup(
     #
     # This field corresponds to the "Description-Content-Type" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#description-content-type-optional
-    #long_description_content_type='text/markdown',  # Optional (see note above)
+    long_description_content_type='text/markdown',  # Optional (see note above)
 
     # This should be a valid link to your project's main homepage.
     #
@@ -144,7 +144,7 @@ setup(
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/discussions/install-requires-vs-requirements/
-    install_requires=['numpy','earthengine-api','geetools','matplotlib','spectral','scipy','pandas','opencv-python','scikit-learn'],  # Optional
+    install_requires=['numpy','earthengine-api','geetools','matplotlib','spectral','scipy','pandas','opencv-python','scikit-learn','tqdm'],  # Optional
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). Users will be able to install these using the "extras"
