@@ -49,6 +49,9 @@ To obtain SMARTS, refer to [this section](https://github.com/tmiraglio/SUREHYP#t
 
 ### Use
 
+
+
+
 Functions for preprocessing the radiance data can be called with
 
 ```
@@ -85,7 +88,7 @@ The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (20
 
 The equation to retrieve surface reflectance <img src="https://render.githubusercontent.com/render/math?math=\rho"> from radiance is:
 
-<img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}*(L-L_{haze})}{T_{gs}*(E_{sun}*cos\theta_{Z}*T_{sg}+E_{down})}">
+<img src="https://render.githubusercontent.com/render/math?math=\rho=\frac{\pi{}*(L-L_{haze})}{T_{gs}*(E_{sun}*cos\theta_{Z}*T_{sg} + E_{down})}">
 
 with <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the ground-sensor path, <img src="https://render.githubusercontent.com/render/math?math=E_{sun}"> the solar irradiance, <img src="https://render.githubusercontent.com/render/math?math=\theta_{Z}"> angle of solar incidence on the surace (zenith angle if surface is considered flat), <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> the atmospheric transmittance along the sun-ground path, and <img src="https://render.githubusercontent.com/render/math?math=E_{down}"> the diffuse irradiance.
 

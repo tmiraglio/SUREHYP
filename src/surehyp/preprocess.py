@@ -260,9 +260,8 @@ def destriping(array,srange,threshold):
         array=localDestriping3D(array,mik,sik,i,outlier)
     return array
 
-def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
+def getLocalOutlier3D(mik,sik,ngbrh,thres):
     '''
-    img: array to destripe -- (m,n,b) array
     mik: median value of each column of the array -- (n,b) array
     sik: std value of each column of the array -- (n,b) array
     ngbrh: neighborhood to use for the outlier destection
@@ -320,7 +319,9 @@ def destriping_quadratic(array):
     ncs=[]
     for b in np.arange(Pca.shape[1]):
         peaks,_=find_peaks(Pca[:,b])
-        nc=np.amax(np.diff(peaks))
+        trough,_=find_peaks(-Pca[:,b])
+        width=np.sort(np.append(peaks,trough))
+        nc=int(np.ceil(np.median(np.sort(np.diff(width))[-int(width.size/5):])))
         ncs.append(nc)
         Pfit.append(savgol_filter(Pca[:,b],10*nc+1,2))
     Pfit=np.asarray(Pfit).T
@@ -347,6 +348,7 @@ def destriping_local(array,ncs):
 
         Icorr_mean=uniform_filter(array[:,:,b],size=(size,size))
         Icorr_std=surehyp.various.window_stdev(array[:,:,b],(size,size))
+        Icorr_std=
         Icorr_diff=array[:,:,b]-Icorr_mean
         bad_pixels=np.zeros(array[:,:,b].shape)
         bad_pixels[Icorr_diff>Icorr_std]=1

@@ -153,7 +153,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
         path_elev=surehyp.atmoCorrection.matchResolution(pathToRadianceImage,path_elev=path_to_reprojected_dem)
 
         print("extract the data corresponding to the Hyperion image's pixels")
-        elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_to_reprojected_dem)
+        elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_elev)
 
         print('computing the LUT for the rough terrain correction')
         R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,WV=wv,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)

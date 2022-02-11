@@ -486,7 +486,7 @@ def getGEEdate(datestamp1,year,doy,longit,latit):
     numPixels=1
 
     WTR = ee.ImageCollection('NCEP_RE/surface_wv') #kg/m2
-    WTR=WTR.select('pr_wtr').filterDate(datestamp1+'T17:30',datestamp1+'T18:30')
+    WTR=WTR.select('pr_wtr').filterDate(datestamp1.replace('/','-')+'T17:30',datestamp1.replace('/','-')+'T18:30')
     coord=ee.Geometry.Point(longit,latit)
     wv=WTR.first().sample(region=coord,numPixels=numPixels).getInfo()['features'][0]['properties']['pr_wtr']#.get('air').getInfo()
     wv=wv*1E-1 #g.cm-2
@@ -494,19 +494,21 @@ def getGEEdate(datestamp1,year,doy,longit,latit):
     year=int(year)
     doy=int(doy)
     i=1
-    while True:
+    while i<3:
         try:
             O3=ee.ImageCollection('TOMS/MERGED') #dobson
             O3=O3.select('ozone').filter(ee.Filter.calendarRange(year,year,'year'))
             O3=O3.filter(ee.Filter.dayOfYear(doy-i,doy+i))
             coord=ee.Geometry.Point(longit,latit)
             o3=O3.first().sample(region=coord,numPixels=numPixels).getInfo()['features'][0]['properties']['ozone']#.get('air').getInfo()
+            flag_no_o3=False
             break
         except:
+            flag_no_o3=True
             i+=1
     o3=o3*1E-3 # atm-cm
 
-    return wv, o3
+    return wv, o3,flag_no_o3
 
 def getImageAndParameters(path):
     '''
@@ -776,14 +778,14 @@ def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,l
 
     #obtain some atmospheric parameters using GEE
     print('get water vapor and ozone from GEE')
-    wvGEE,o3=getGEEdate(datestamp1,year,doy,longit,latit)
+    wvGEE,o3,flag_no_o3=getGEEdate(datestamp1,year,doy,longit,latit)
 
     print('get water vapor from the radiance image')
     wv=getWaterVapor(bands,L,altit,latit,longit,year,month,day,int(hour)+int(minute)/60,doy,thetaV,imass,io3,ialt,o3)
 
     if (wv>12) or (np.isnan(wv)):
         wv=wvGEE
-    return wv,o3
+    return wv,o3,flag_no_o3
 
 def computeLtoR(L,bands,df,df_gs):
     '''
