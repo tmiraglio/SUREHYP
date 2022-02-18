@@ -348,7 +348,6 @@ def destriping_local(array,ncs):
 
         Icorr_mean=uniform_filter(array[:,:,b],size=(size,size))
         Icorr_std=surehyp.various.window_stdev(array[:,:,b],(size,size))
-        Icorr_std=
         Icorr_diff=array[:,:,b]-Icorr_mean
         bad_pixels=np.zeros(array[:,:,b].shape)
         bad_pixels[Icorr_diff>Icorr_std]=1

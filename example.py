@@ -11,6 +11,13 @@ import matplotlib.pyplot as plt
 import surehyp.preprocess
 import surehyp.atmoCorrection
 
+plt.rcParams.update({
+  "text.usetex": True,
+  "font.family": "Computer Modern Roman"
+})
+plt.rc('text.latex', preamble=r'\usepackage{gensymb}')
+
+
 def preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,nameOut,destripingMethod='Pal',localDestriping=False,smileCorrectionOrder=2,checkSmile=False):    
     print('concatenate the L1T image')
     surehyp.preprocess.processImage(fname,pathToL1Timages,pathToL1TimagesFiltered)
@@ -70,7 +77,7 @@ def preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,
 
     return pathOut+nameOut
 
-def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTilt=15,stepWazim=30,demID='JAXA/ALOS/AW3D30/V3_2',elevationName='DSM',topo=False,smartsAlbedoFilePath='./SMARTS2981-PC_Package/Albedo/Albedo.txt'):
+def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTilt=15,stepWazim=30,demID='NRCan/CDEM',elevationName='elevation',topo=False,smartsAlbedoFilePath='./SMARTS2981-PC_Package/Albedo/Albedo.txt'):
     print('open processed radiance image')
     L,bands,fwhms,processing_metadata,metadata=surehyp.atmoCorrection.getImageAndParameters(pathToRadianceImage)
 
@@ -82,7 +89,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     datestamp2=processing_metadata['datestamp2']
     zenith=processing_metadata['zenith']
     azimuth=processing_metadata['azimuth']
-    satelliteZenith=processing_metadata['satelliteZenith']
+    satelliteZenith=np.abs(processing_metadata['satelliteZenith'])
     satelliteAzimuth=processing_metadata['satelliteAzimuth']
     scaleFactor=processing_metadata['scaleFactor']
 
@@ -107,7 +114,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     ####
 
     print('removal of thin cirrus')
-    L=surehyp.atmoCorrection.cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV)
+    L=surehyp.atmoCorrection.cirrusRemoval(bands,L,latit,doy,satelliteZenith,zenith,azimuth)
 
     print('get haze spectrum')
     L,Lhaze=surehyp.atmoCorrection.darkObjectDehazing(L,bands)
@@ -116,7 +123,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     altit=surehyp.atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID=demID,elevationName=elevationName)
 
     print('get atmosphere content')
-    wv,o3,flag_no_o3=surehyp.atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV)
+    wv,o3,flag_no_o3=surehyp.atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,doy,longit,latit,altit,satelliteZenith,zenith,azimuth)
 
     if flag_no_o3==True:
         IO3=1
@@ -127,11 +134,9 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     # Atmospheric correction -- flat surface
     print('obtain radiative transfer outputs')
     #get the atmosphere parameters for the sun-ground section using the image acquisition time to determine sun angle
-    df=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,ZENITH=zenith,AZIM=azimuth,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3)
+    df=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,IMASS=0,ZENITH=zenith,AZIM=azimuth,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3)
     #get the atmosphere parameters for the ground-satellite section by setting the 'sun' (in SMARTS) at the satellite zenith position to get the transmittance over the correct optical path length
-    df_gs=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3)
-
-    print(df.columns)
+    df_gs=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=satelliteZenith,AZIM=0,IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3)
 
     print('compute radiance to reflectance')
     R=surehyp.atmoCorrection.computeLtoR(L,bands,df,df_gs)
@@ -152,11 +157,6 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
         f=interpolate.interp1d(w,r,bounds_error=False,fill_value='extrapolate')
         rho_background=f(df['Wvlgth']*1E-3)
 
-        fig,ax=plt.subplots()
-        ax.plot(w,r)
-        ax.plot(df['Wvlgth']*1E-3,rho_background)
-        plt.show()
-
         print('download DEM images from GEE')
         path_to_dem = surehyp.atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID=demID,elevationName=elevationName)
 
@@ -172,7 +172,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
         elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_elev)
 
         print('computing the LUT for the rough terrain correction')
-        R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)
+        R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)
 
         print('MM topography correction')
         R=surehyp.atmoCorrection.MM_topo_correction(R,bands,slope*np.pi/180,wazim*np.pi/180,zenith*np.pi/180,azimuth*np.pi/180)
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     pathToL1TimagesFiltered="./L1T/filteredImages/"
 
     pathOut='./OUT/'
-    fname='EO1H0490252015289110K0'
+    fname='EO1H0110262016254110KF'
     nameOut=fname+'_test'
 
     ### IF MULTITHREADING -- example 
@@ -211,5 +211,5 @@ if __name__ == '__main__':
 
     pathToRadianceImage='./OUT/'+fname+'_test'
 
-    atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance_test',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
+    atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance_test_flat',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
 

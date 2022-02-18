@@ -77,10 +77,9 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     longit=processing_metadata['longit']
     latit=processing_metadata['latit']
     datestamp1=processing_metadata['datestamp1']
-    datestamp2=processing_metadata['datestamp2']
     zenith=processing_metadata['zenith']
     azimuth=processing_metadata['azimuth']
-    satelliteZenith=processing_metadata['satelliteZenith']
+    satelliteZenith=np.abs(processing_metadata['satelliteZenith'])
     satelliteAzimuth=processing_metadata['satelliteAzimuth']
     scaleFactor=processing_metadata['scaleFactor']
 
@@ -94,18 +93,11 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     LR_lon=processing_metadata['LR_lon']
 
     year=processing_metadata['year']
-    month=processing_metadata['month']
-    day=processing_metadata['day']
-    hour=processing_metadata['hour']
-    minute=processing_metadata['minute']
     doy=processing_metadata['doy']
-
-    thetaZ=processing_metadata['thetaZ']
-    thetaV=processing_metadata['thetaV']
     ####
 
     print('removal of thin cirrus - Gao and Li (2017)')
-    L=surehyp.atmoCorrection.cirrusRemoval(bands,L,latit,longit,year,month,day,hour,doy,thetaV)
+    L=surehyp.atmoCorrection.cirrusRemoval(bands,L,latit,doy,satelliteZenith,zenith,azimuth)
 
     print('get haze spectrum - Chavez (1998)')
     L,Lhaze=surehyp.atmoCorrection.darkObjectDehazing(L,bands)
@@ -114,15 +106,15 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     altit=surehyp.atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID=demID,elevationName=elevationName)
 
     print('get atmosphere content')
-    wv,o3=surehyp.atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV)
+    wv,o3=surehyp.atmoCorrection.getAtmosphericParameters(bands,L,datestamp1,year,doy,longit,latit,altit,satelliteZenith,zenith,azimuth)
 
     ########################################
     # Atmospheric correction -- flat surface
     print('obtain radiative transfer outputs')
     #get the atmosphere parameters for the sun-ground section using the image acquisition time to determine sun angle
-    df=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=int(hour)+int(minute)/60,ZENITH=zenith,AZIM=azimuth,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
+    df=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=latit,IMASS=0,ZENITH=zenith,AZIM=azimuth,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
     #get the atmosphere parameters for the ground-satellite section by setting the 'sun' (in SMARTS) at the satellite zenith position to get the transmittance over the correct optical path length
-    df_gs=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
+    df_gs=surehyp.atmoCorrection.runSMARTS(ALTIT=altit,LATIT=0,IMASS=0,SUNCOR=surehyp.atmoCorrection.get_SUNCOR(doy),ITURB=5,ZENITH=satelliteZenith,AZIM=0,IH2O=0,WV=wv,IO3=0,IALT=0,AbO3=o3)
 
     print('compute radiance to reflectance')
     R=surehyp.atmoCorrection.computeLtoR(L,bands,df,df_gs)
@@ -156,7 +148,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
         elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_elev)
 
         print('computing the LUT for the rough terrain correction')
-        R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,longit=longit,WV=wv,AbO3=o3,year=year,month=month,day=day,hour=hour,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)
+        R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,WV=wv,AbO3=o3,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)
 
         print('MM topography correction - Richter 1998')
         R=surehyp.atmoCorrection.MM_topo_correction(R,bands,slope*np.pi/180,wazim*np.pi/180,zenith*np.pi/180,azimuth*np.pi/180)

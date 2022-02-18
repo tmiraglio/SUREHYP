@@ -283,7 +283,6 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         #case '1'
         #The subcard 6a is skipped, and values are for default average
         #profiles.
-        print("")
 
     ## Card 7:  CO2 columnar volumetric concentration (ppmv)
     print('{}'.format(qCO2), file=f)
@@ -586,7 +585,7 @@ def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID='JAX
         raise
     return altit*1e-3
 
-def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imass=3,io3=0,ialt=0,o3=3):
+def getWaterVapor(bands,L,altit,latit,zenith,azimuth,doy,satelliteZenith,imass=0,io3=0,ialt=0,o3=3):
     '''
     bands: wavelengths of each band -- (b,) array
     L: radiance array -- (m,n,b) array
@@ -596,7 +595,7 @@ def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imas
     month: MM
     day: DD
     doy: Day Of Year
-    thetaV: satellite zenith angle in radians
+    satelliteZenith: satellite zenith angle in degrees
     io3,ialt,o3,imass: see SMARTS documentation
 
     returns the site average water vapor content using the water absorption bands at 940 and 1120 and comparing the absorption depth over land with the absorption depths over a LUT generated with SMARTS for the same optical path
@@ -618,8 +617,8 @@ def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imas
     wvOut=[]
 
     for wv in np.concatenate((np.arange(0,1.5,0.2),np.arange(1.5,4,0.5),np.arange(4,12,1))):
-        df=runSMARTS(ALTIT=altit,LATIT=latit,LONGIT=longit,IMASS=imass,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
-        df_gs=runSMARTS(ALTIT=altit,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(thetaV)*180/np.pi,AZIM=0,IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
+        df=runSMARTS(ALTIT=altit,LATIT=latit,IMASS=imass,ZENITH=zenith,AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
+        df_gs=runSMARTS(ALTIT=altit,LATIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=satelliteZenith,AZIM=0,IH2O=0,WV=wv,IO3=io3,IALT=ialt,AbO3=o3)
 
         W=df['Wvlgth']
         E=df['Extraterrestrial_spectrm']
@@ -633,15 +632,17 @@ def getWaterVapor(bands,L,altit,latit,longit,year,month,day,hour,doy,thetaV,imas
         Lout=T_gs*(T*E+Dft)
         Lout[W<=1700]=gaussian_filter(Lout[W<=1700],surehyp.various.fwhm2sigma(10))
         Lout[W>1700]=gaussian_filter(Lout[W>1700],surehyp.various.fwhm2sigma(2))
+        f=interpolate.interp1d(W,Lout)
+        Lout=f(bands)
 
-        lShoulder940=np.mean(Lout[np.logical_and(W>=l940[0],W<=l940[1])])
-        rShoulder940=np.mean(Lout[np.logical_and(W>=r940[0],W<=r940[1])])
-        btm940=Lout[np.argmin(np.abs(W-940))]
+        lShoulder940=np.mean(Lout[np.logical_and(bands>=l940[0],bands<=l940[1])])
+        rShoulder940=np.mean(Lout[np.logical_and(bands>=r940[0],bands<=r940[1])])
+        btm940=Lout[np.argmin(np.abs(bands-940))]
         ratios940.append(btm940/np.mean([lShoulder940,rShoulder940]))
 
-        lShoulder1120=np.mean(Lout[np.logical_and(W>=l1120[0],W<=l1120[1])])
-        rShoulder1120=np.mean(Lout[np.logical_and(W>=r1120[0],W<=r1120[1])])
-        btm1120=Lout[np.argmin(np.abs(W-1120))]
+        lShoulder1120=np.mean(Lout[np.logical_and(bands>=l1120[0],bands<=l1120[1])])
+        rShoulder1120=np.mean(Lout[np.logical_and(bands>=r1120[0],bands<=r1120[1])])
+        btm1120=Lout[np.argmin(np.abs(bands-1120))]
         ratios1120.append(btm1120/np.mean([lShoulder1120,rShoulder1120]))
 
         wvOut.append(wv)
@@ -758,7 +759,7 @@ def computeLtoRfactor(df,df_gs):
 
     return factor
 
-def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,longit,latit,altit,thetaV,imass=3,io3=0,ialt=0,o3=3):
+def getAtmosphericParameters(bands,L,datestamp1,year,doy,longit,latit,altit,satelliteZenith,zenith,azimuth,imass=0,io3=0,ialt=0,o3=3):
     '''
     bands: wavelengths of each band -- (b,) array
     L: radiance array -- (m,n,b) array
@@ -770,7 +771,7 @@ def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,l
     doy: Day Of Year
     latit, longit: site latitude and longitude in decimal degrees
     altit: site altitude in km
-    thetaV: satellite zenith angle in radians
+    satelliteZenith: satellite zenith angle in degrees
     io3,ialt,o3,imass: see SMARTS documentation
    
     returns atmopsheric ozone and water vapor content for the study site from GEE or (for water, if possible) directly from the image
@@ -781,7 +782,7 @@ def getAtmosphericParameters(bands,L,datestamp1,year,month,day,hour,minute,doy,l
     wvGEE,o3,flag_no_o3=getGEEdate(datestamp1,year,doy,longit,latit)
 
     print('get water vapor from the radiance image')
-    wv=getWaterVapor(bands,L,altit,latit,longit,year,month,day,int(hour)+int(minute)/60,doy,thetaV,imass,io3,ialt,o3)
+    wv=getWaterVapor(bands,L,altit,latit,zenith,azimuth,doy,satelliteZenith,imass,io3,ialt,o3)
 
     if (wv>12) or (np.isnan(wv)):
         wv=wvGEE
@@ -822,7 +823,7 @@ def saveRimage(R,metadata,pathOut,scaleFactor=100):
     R=R.astype(np.uint16)
     envi.save_image(pathOut+'.hdr',R,metadata=metadata,force=True)
 
-def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
+def getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth):
     '''
     bands: wavelengths of each band -- (b,) array
     latit, longit: site latitude and longitude in decimal degrees
@@ -830,23 +831,23 @@ def getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV):
     month: MM
     day: DD
     doy: Day Of Year
-    thetaV: satellite zenith angle in radians
+    satelliteZenith: satellite zenith angle in degrees
     
     return the factor used to convert at satellite radiance to TOA reflectance
     '''
     
     #compute TOA reflectance
-    df=runSMARTS(ALTIT=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=0,IO3=0,IALT=0,AbO3=0)
+    df=runSMARTS(ALTIT=0,LATIT=latit,IMASS=0,ZENITH=zenith,AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=0,WV=0,IO3=0,IALT=0,AbO3=0)
     W=df['Wvlgth'].values
     E=df['Extraterrestrial_spectrm'].values
-    factor=np.pi/(E*np.cos(thetaV))
+    factor=np.pi/(E*np.cos(satelliteZenith*np.pi/180))
     factor[W<=1700]=gaussian_filter(factor[W<=1700],surehyp.various.fwhm2sigma(10))
     factor[W>1700]=gaussian_filter(factor[W>1700],surehyp.various.fwhm2sigma(2))
     f=interpolate.interp1d(W,factor)
     factor=f(bands)
     return factor
 
-def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV,cirrusReflectanceThreshold=1):
+def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflectanceThreshold=1):
     '''
     bands: wavelengths of each band -- (b,) array
     A: radiance array -- (m,n,b) array
@@ -855,7 +856,7 @@ def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV,cirrusRefl
     month: MM
     day: DD
     doy: Day Of Year
-    thetaV: satellite zenith angle in radians
+    satelliteZenith: satellite zenith angle in degrees
     cirrusReflectanceThreshold: TOA reflectance below which pixels at 1380 um  are considered to be 0 even though they are not
 
     return the cirrus-removed radiance array -- (m,n,b) array
@@ -864,7 +865,7 @@ def cirrusRemoval(bands,A,latit,longit,year,month,day,hour,doy,thetaV,cirrusRefl
     #uses the method presented by Gao et al 1997, 2017 to remove cirrus effects
     #compute TOA reflectance, performs the cirrus removal, and retransforms to TOA radiance
     #returns the cirrus-removed TOA radiance
-    factor=getTOAreflectanceFactor(bands,latit,longit,year,month,day,hour,doy,thetaV).astype(np.float32)
+    factor=getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth).astype(np.float32)
     A=factor*A
     A[A<=0]=0
     A=A.astype(np.float32)
@@ -1008,7 +1009,6 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID='
             elev=dem.mosaic()
 
         folders=splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,elev)    
-        print(folders)
         
         src_files_to_mosaic=[]
         for elev in folders:
@@ -1134,7 +1134,7 @@ def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
     arraySecondaryNew=np.reshape(arraySecondaryNew,(array1.shape[0],array1.shape[1]))
     return arraySecondaryNew
 
-def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,longit,WV,AbO3,year,month,day,hour,doy,zenith,azimuth,satelliteZenith,satelliteAzimuth,L,bands,IH2O=0,IO3=0,IALT=0,IALBDX=1,RHOX=0,rho_background=0):
+def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,latit,WV,AbO3,doy,zenith,azimuth,satelliteZenith,satelliteAzimuth,L,bands,IH2O=0,IO3=0,IALT=0,IALBDX=1,RHOX=0,rho_background=0):
     '''
     altitMap: elevation map of the study site (km) -- (m,n) array
     tiltMap: slope tilt angle map (degree) -- (m,n) array
@@ -1168,7 +1168,7 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     ALTITS=ALTITS[ALTITS>=0]
 
     #first dry run to get W
-    df=runSMARTS(ALTIT=0,ITILT='1',TILT=0,WAZIM=0,LATIT=latit,LONGIT=longit,IMASS=3,YEAR=year,MONTH=month,DAY=day,HOUR=hour,SUNCOR=get_SUNCOR(doy))
+    df=runSMARTS(ALTIT=0,ITILT='1',TILT=0,WAZIM=0,LATIT=latit,IMASS=0,SUNCOR=get_SUNCOR(doy),ZENITH=zenith,AZIM=azimuth)
     W=df['Wvlgth'].values
 
     points = (ALTITS, TILTS, WAZIMS)
@@ -1180,8 +1180,8 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     print(np.unique(WAZIMS))
 
     for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
-        df=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=hour,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
-        df_gs=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+        df=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=latit,IMASS=0,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+        df_gs=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
         
         E=df['Extraterrestrial_spectrm'].astype(np.float32)
         T_sg=df['Direct_rad_transmittance'].astype(np.float32)
@@ -1205,12 +1205,11 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
                     '''
                     for low angles where direct illumination is considerably more important than diffuse illumination
                     this is not the exact formula used by SMARTS, however difference is negligible for angles <45 degrees
-                    when the SMARTS will be known, is should accelerate this step significantly by not having to run SMARTS over and over
                     '''
                     tmp= ( np.pi/T_gs/(T_sg*E*np.cos(betai) + Dft*(1+np.cos(tilt))/2 + (T_sg*E+Dft)*rho_background*(1-np.cos(tilt))/2) ) 
                 else: #for high angles, e.g. indirect illumination, compute with SMARTS 
-                    df=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,LONGIT=longit,IMASS=0,YEAR=year,MONTH=month,DAY=day,HOUR=hour,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
-                    df_gs=runSMARTS(ALTIT=xv[i,j,k],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,LONGIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+                    df=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=latit,IMASS=0,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
+                    df_gs=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=yv[i,j,k],WAZIM=zv[i,j,k],LATIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
 
                     Dgt=df['Global_tilted_irradiance']
                     T_gs=df_gs['Direct_rad_transmittance']
