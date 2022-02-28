@@ -5,7 +5,7 @@ This package was designed to obtain desmiled, destriped and georeferenced reflec
 
 ## Description
 
-[example](./example.py) is an example script containing the whole processing chain. It allows multithreaded processing. Users should update the various paths and filenames to their desired configuration.
+[example](./example.py) is an example script containing the whole processing chain, that can be employed to process batches of hyperion images from L1R/L1T to surface reflectance. Users should update the various paths and filenames to their desired configuration.
 
 [preprocess](./func/preprocess.py) contains the various functions called in the preprocessing step, to obtain georeferenced, desmiled, and destriped hyperspectral images.
 
@@ -23,10 +23,10 @@ For ease of installation, it is recommended to install `pyhdf`, `rasterio`, `ric
 conda install pyhdf rasterio richdem gdal
 ```
 
-Then, SUREHYP and all other packages can be installed with `pip`: *the pip package is WIP*
+Then, SUREHYP and all other packages can be installed with `pip`: 
 
 ```
-python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple surehyp-test
+pip install surehyp
 ```
 
 <!---
@@ -96,7 +96,7 @@ with <img src="https://render.githubusercontent.com/render/math?math=T_{sg}"> th
 
 Parameters such as ozone concentration, water vapor, or site altitude are extracted from the image using the water vapor absorption bands (for water vapor) or from Google Earth Engine (for water vapor, ozone and altitude). 
 
-The DEM is downloaded from GEE and slope and aspect are obtained locally to save download time as downloading the three images from GEE may be slow.
+The DEM can be downloaded from GEE and slope and aspect are obtained locally to save download time as downloading the three images from GEE may be slow. A Modified-Minnaert method can be caller after the topographic correction to compensate over-corrected areas.
 
 The reflectance image is then saved as a .bip file.
 

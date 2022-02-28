@@ -18,12 +18,12 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from rasterio.merge import merge
 import richdem as rd
 from tqdm.auto import tqdm
-#from tqdm.notebook.tqdm import tqdm
 import pandas as pd
 import subprocess
-
 import surehyp.various
 import surehyp.preprocess
+
+np.seterr(invalid='ignore')
 
 
 def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None,IALBDX=1,RHOX=None,smartsVersion='smarts298',smartsExecutable='smarts2981_PC_64bit.exe'):
@@ -283,6 +283,7 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
         #case '1'
         #The subcard 6a is skipped, and values are for default average
         #profiles.
+        pass
 
     ## Card 7:  CO2 columnar volumetric concentration (ppmv)
     print('{}'.format(qCO2), file=f)
@@ -778,10 +779,10 @@ def getAtmosphericParameters(bands,L,datestamp1,year,doy,longit,latit,altit,sate
     '''
 
     #obtain some atmospheric parameters using GEE
-    print('get water vapor and ozone from GEE')
+    #print('get water vapor and ozone from GEE')
     wvGEE,o3,flag_no_o3=getGEEdate(datestamp1,year,doy,longit,latit)
 
-    print('get water vapor from the radiance image')
+    #print('get water vapor from the radiance image')
     wv=getWaterVapor(bands,L,altit,latit,zenith,azimuth,doy,satelliteZenith,imass,io3,ialt,o3)
 
     if (wv>12) or (np.isnan(wv)):
@@ -930,7 +931,7 @@ def splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,ele
 
     returns a list of the folders containing the subimages
     '''
-    print('splitting download of '+prefix)
+    #print('splitting download of '+prefix)
 
 
     lon_min=np.amin([UL_lon-0.05,UR_lon-0.05,LR_lon-0.05,LL_lon-0.05])
@@ -1175,9 +1176,9 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     xv,yv,zv=np.meshgrid(*points,indexing='ij')
     data=np.zeros((xv.shape[0],xv.shape[1],xv.shape[2],len(W)))
 
-    print(np.unique(ALTITS))
-    print(np.unique(TILTS))
-    print(np.unique(WAZIMS))
+    #print(np.unique(ALTITS))
+    #print(np.unique(TILTS))
+    #print(np.unique(WAZIMS))
 
     for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
         df=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=latit,IMASS=0,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)

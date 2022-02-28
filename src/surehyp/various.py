@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.ndimage.filters import uniform_filter
+np.seterr(invalid='ignore')
 
 
 def getRed(R,W):

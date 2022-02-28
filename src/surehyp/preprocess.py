@@ -12,13 +12,14 @@ from scipy.ndimage.filters import median_filter,uniform_filter1d, uniform_filter
 from scipy.signal import savgol_filter, find_peaks
 from sklearn.decomposition import PCA
 import spectral.io.envi as envi
-
 import surehyp.various
+np.seterr(invalid='ignore')
+
 
 def processImage(fname,pathToImages,pathToImagesFiltered):
     '''
     compiles all TIF bands of the Hyperion L1T image fname into a single TIF image
-    fname : name of the hyperion image
+    fname : ID of the hyperion image e.g. EO1H0110262016254110KF
     pathToImages : path to the folder containing the image folder
     pathToImagesFiltered: destination folder for the processed images
     '''
@@ -58,7 +59,7 @@ def getAcquisitionsProperties(pathToL1Rmetadata,fname=None):
     reads the metadata file exported from https://earthexplorer.usgs.gov/ to get the acquisition properties of each Hyperion image necessary for the processing
     
     pathToL1Rmetadata: path to the Hyperion image metadata csv as downloaded from the usgs website
-    fname: Hyperion image name
+    fname: Hyperion image name e.g. EO1H0110262016254110KF
 
     returns:
     sunZeniths: sun zenith angle in degrees

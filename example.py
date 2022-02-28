@@ -11,12 +11,6 @@ import matplotlib.pyplot as plt
 import surehyp.preprocess
 import surehyp.atmoCorrection
 
-plt.rcParams.update({
-  "text.usetex": True,
-  "font.family": "Computer Modern Roman"
-})
-plt.rc('text.latex', preamble=r'\usepackage{gensymb}')
-
 
 def preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,nameOut,destripingMethod='Pal',localDestriping=False,smileCorrectionOrder=2,checkSmile=False):    
     print('concatenate the L1T image')
@@ -86,12 +80,10 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     longit=processing_metadata['longit']
     latit=processing_metadata['latit']
     datestamp1=processing_metadata['datestamp1']
-    datestamp2=processing_metadata['datestamp2']
     zenith=processing_metadata['zenith']
     azimuth=processing_metadata['azimuth']
     satelliteZenith=np.abs(processing_metadata['satelliteZenith'])
     satelliteAzimuth=processing_metadata['satelliteAzimuth']
-    scaleFactor=processing_metadata['scaleFactor']
 
     UL_lat=processing_metadata['UL_lat']
     UL_lon=processing_metadata['UL_lon']
@@ -103,14 +95,7 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     LR_lon=processing_metadata['LR_lon']
 
     year=processing_metadata['year']
-    month=processing_metadata['month']
-    day=processing_metadata['day']
-    hour=processing_metadata['hour']
-    minute=processing_metadata['minute']
     doy=processing_metadata['doy']
-
-    thetaZ=processing_metadata['thetaZ']
-    thetaV=processing_metadata['thetaV']
     ####
 
     print('removal of thin cirrus')
@@ -186,30 +171,20 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
 if __name__ == '__main__':
 
     ee.Initialize()
-    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/'
+    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/' #Path to the SMARTS folder
     
 
-    pathToL1Rmetadata='./METADATA/METADATA.csv'
+    pathToL1Rmetadata='./METADATA/METADATA.csv' #path to the Hyperion metadata file provided by the USGS
 
-    pathToL1Timages="./L1T/"
+    pathToL1Rimages="./L1R/" #contains the uncompressed L1R folders ( that contain the .AUX,.jdr,.L1R,.MET, .fgdc files)
+    pathToL1Timages="./L1T/" #contains the zip files of the L1T images (that contain a TIF file for each band)
+    pathToL1TimagesFiltered="./L1T/filteredImages/" #contains the TIF L1R images, each TIF file containing all bands
+    
+    pathOut='./OUT/' # folder where the outputs of SUREHYP will be written
+    fname='EO1H0110262016254110KF' # ID of the Hyperion image
+    nameOut=fname+'_test' # name of the corrected radiance image that will be save by preprocess_radiance, and will be opened by atmosphericCorrection
 
-    pathToL1Rimages="./L1R/"
-    pathToL1TimagesFiltered="./L1T/filteredImages/"
+    pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',destripingMethod='Pal',localDestriping=False,checkSmile=False)
 
-    pathOut='./OUT/'
-    fname='EO1H0110262016254110KF'
-    nameOut=fname+'_test'
-
-    ### IF MULTITHREADING -- example 
-    #preprocessing
-    #processes=10
-    #with Pool(processes=processes) as pool:
-    #    print('pooling the preprocessing')
-    #    pool.map(partial(processImage,pathToL1Rmetadata=pathToL1Rmetadata,pathToL1Rimages=pathToL1Rimages,pathToL1Timages=pathToL1Timages,pathToL1TimagesFiltered=pathToL1TimagesFiltered,pathOut=pathOut),fnames)
-
-    #pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',checkSmile=True)
-
-    pathToRadianceImage='./OUT/'+fname+'_test'
-
-    atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance_test_flat',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
+    atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance_test_flat',stepAltit=1,stepTilt=15,stepWazim=15,demID='NRCan/CDEM',elevationName='elevation',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
 
