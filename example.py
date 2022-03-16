@@ -186,7 +186,7 @@ if __name__ == '__main__':
     fname='EO1H0490222003154110PZ' # ID of the Hyperion image
     nameOut=fname+'_test' # name of the corrected radiance image that will be save by preprocess_radiance, and will be opened by atmosphericCorrection
 
-    #pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',destripingMethod='Pal',localDestriping=False,checkSmile=False)
+    pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',destripingMethod='Pal',localDestriping=False,checkSmile=False)
 
     pathToRadianceImage='C:/Users/tmiragli/Github/SUREHYP/OUT/EO1H0490222003154110PZ_test'
 
