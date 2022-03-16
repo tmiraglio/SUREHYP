@@ -671,18 +671,23 @@ def getWaterVapor(bands,L,altit,latit,zenith,azimuth,doy,satelliteZenith,imass=0
 
     return wvImg
 
-def darkObjectDehazing(L,bands):
+def darkObjectDehazing(L,bands, cloudMask=None):
     '''
     bands: wavelengths of each band -- (b,) array
     L: radiance array -- (m,n,b) array
+    cloudMask: cloud mask, 0 if not clouds, 1 if clouds -- (m,n) array
 
     returns:
     L: the dehazed radiance array usign the Dark object substraction method by Chavez (1988)  -- (m,n,b) array
     Lhaze: the haze radiance spectrum -- (b,) array
     '''
 
+    Ltmp=L.copy()
+    if cloudMask is not None:
+        Ltmp[cloudMask==1,:]=0
+    
+    Ltmp=Ltmp[Ltmp[:,:,0]>0,:]
 
-    Ltmp=L[L[:,:,0]>0,:]
     DOBJ=np.amin(Ltmp,axis=0)
     DOBJ=smoothing(DOBJ,5,1)
     bands_dobj=bands
@@ -701,6 +706,7 @@ def darkObjectDehazing(L,bands):
     Lhaze[Lhaze<0]=0
     L=L-Lhaze
     L[L<=0]=0
+
     return L,Lhaze
 
 def get_SUNCOR(doy):
@@ -848,7 +854,7 @@ def getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth):
     factor=f(bands)
     return factor
 
-def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflectanceThreshold=1):
+def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflectanceThreshold=1,cloudReflectance=30):
     '''
     bands: wavelengths of each band -- (b,) array
     A: radiance array -- (m,n,b) array
@@ -859,6 +865,7 @@ def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflect
     doy: Day Of Year
     satelliteZenith: satellite zenith angle in degrees
     cirrusReflectanceThreshold: TOA reflectance below which pixels at 1380 um  are considered to be 0 even though they are not
+    cloudReflectance: reflectance threshold to determine if pixel is a cloud
 
     return the cirrus-removed radiance array -- (m,n,b) array
     '''
@@ -870,6 +877,11 @@ def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflect
     A=factor*A
     A[A<=0]=0
     A=A.astype(np.float32)
+
+    #build cloud mask
+    rVis,_=surehyp.various.getCloud(A,bands)
+    cloudMask=np.zeros((A.shape[0],A.shape[1]))
+    cloudMask[rVis>cloudReflectance]=1
 
     Rcirrus=A[:,:,np.argmin(np.abs(bands-1380))]
     r1380=Rcirrus[Rcirrus>=cirrusReflectanceThreshold] #if Reflectance TOA [0-100]
@@ -916,7 +928,7 @@ def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflect
     else:
         A=A/factor
         A[A<=0]=0
-    return A
+    return A,cloudMask
 
 def splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,elev,prefix='elev'):
     '''

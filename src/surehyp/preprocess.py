@@ -261,9 +261,6 @@ def destriping(array,srange,threshold):
         array=localDestriping3D(array,mik,sik,i,outlier)
     return array
 
-<<<<<<< HEAD:func/preprocess.py
-def getLocalOutlier3D(img,mik,sik,ngbrh,thres):
-=======
 def getLocalOutlier3D(mik,sik,ngbrh,thres):
     '''
     mik: median value of each column of the array -- (n,b) array
@@ -275,8 +272,6 @@ def getLocalOutlier3D(mik,sik,ngbrh,thres):
     outlier -- (n,b) array
     '''
 
-
->>>>>>> main:src/surehyp/preprocess.py
     lmedmik=median_filter(mik,footprint=np.ones((ngbrh,1)),mode='reflect')
     lmedsik=median_filter(sik,footprint=np.ones((ngbrh,1)),mode='reflect')
     test=np.abs(mik-lmedmik)/lmedsik
@@ -613,12 +608,7 @@ def savePreprocessedL1R(arrayL1RGeoreferenced,wavelengths,fwhms,kwargs,pathToL1R
     metadata['ll_lon']=LL_lon
     metadata['lr_lat']=LR_lat
     metadata['lr_lon']=LR_lon
-<<<<<<< HEAD:func/preprocess.py
-    envi.save_image(pathOut+fname+'_L1R_complete.hdr',img[:,:,:],metadata=metadata,force=True)
-=======
     envi.save_image(pathOut+'.hdr',arrayL1RGeoreferenced[:,:,:],metadata=metadata,force=True)
->>>>>>> main:src/surehyp/preprocess.py
-
 
 def plotCheckSmile(mnfArray):
     '''

@@ -77,6 +77,13 @@ def getNDVI(R,W):
     red=np.nanmean(R[...,iRedMin:iRedMax+1],axis=-1)
     return (NIR-red)/(NIR+red), red, NIR
 
+def getVisible(R,W):
+    tealb=[400,1000]
+    iTealMin=np.nanargmin(np.abs(W-tealb[0]))
+    iTealMax=np.nanargmin(np.abs(W-tealb[1]))
+    teal=np.nanmean(R[...,iTealMin:iTealMax+1],axis=-1)
+    return teal, np.mean(tealb)
+
 def NDWI_water(R,W):
     NIRb=[780,860]
     greenb=[492,577]
