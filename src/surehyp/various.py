@@ -4,67 +4,67 @@ np.seterr(invalid='ignore')
 
 
 def getRed(R,W):
-    redb=[640,680]
-    iRedMin=np.nanargmin(np.abs(W-redb[0]))
-    iRedMax=np.nanargmin(np.abs(W-redb[1]))
-    red=np.nanmean(R[...,iRedMin:iRedMax+1],axis=-1)
-    return red, np.mean(redb)
+    b=[640,680]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getMIR(R,W):
-    mirb=[2100,2200]
-    iMirMin=np.nanargmin(np.abs(W-mirb[0]))
-    iMirMax=np.nanargmin(np.abs(W-mirb[1]))
-    mir=np.nanmean(R[...,iMirMin:iMirMax+1],axis=-1)
-    return mir, np.mean(mirb)
+    b=[2100,2200]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getNIR(R,W):
-    mirb=[780,860]
-    iMirMin=np.argmin(np.abs(W-mirb[0]))
-    iMirMax=np.argmin(np.abs(W-mirb[1]))
-    mir=np.nanmean(R[...,iMirMin:iMirMax+1],axis=-1)
-    return mir, np.mean(mirb)
+    b=[780,860]
+    iMin=np.argmin(np.abs(W-b[0]))
+    iMax=np.argmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getGreen(R,W):
-    greenb=[530,590]
-    iGreenMin=np.nanargmin(np.abs(W-greenb[0]))
-    iGreenMax=np.nanargmin(np.abs(W-greenb[1]))
-    green=np.nanmean(R[...,iGreenMin:iGreenMax+1],axis=-1)
-    return green, np.mean(greenb)
+    b=[530,590]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getBlue(R,W):
-    blueb=[450,490]
-    iBlueMin=np.nanargmin(np.abs(W-blueb[0]))
-    iBlueMax=np.nanargmin(np.abs(W-blueb[1]))
-    blue=np.nanmean(R[...,iBlueMin:iBlueMax+1],axis=-1)
-    return blue, np.mean(blueb)
+    b=[450,490]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getDeepBlue(R,W):
-    blueb=[400,460]
-    iBlueMin=np.nanargmin(np.abs(W-blueb[0]))
-    iBlueMax=np.nanargmin(np.abs(W-blueb[1]))
-    blue=np.nanmean(R[...,iBlueMin:iBlueMax+1],axis=-1)
-    return blue, np.mean(blueb)
+    b=[400,460]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getDeeperBlue(R,W):
-    blueb=[360,400]
-    iBlueMin=np.nanargmin(np.abs(W-blueb[0]))
-    iBlueMax=np.nanargmin(np.abs(W-blueb[1]))
-    blue=np.nanmean(R[...,iBlueMin:iBlueMax+1],axis=-1)
-    return blue, np.mean(blueb)
+    b=[360,400]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getTeal(R,W):
-    tealb=[480,530]
-    iTealMin=np.nanargmin(np.abs(W-tealb[0]))
-    iTealMax=np.nanargmin(np.abs(W-tealb[1]))
-    teal=np.nanmean(R[...,iTealMin:iTealMax+1],axis=-1)
-    return teal, np.mean(tealb)
+    b=[480,530]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getSnow(R,W):
-    tealb=[400,600]
-    iTealMin=np.nanargmin(np.abs(W-tealb[0]))
-    iTealMax=np.nanargmin(np.abs(W-tealb[1]))
-    teal=np.nanmean(R[...,iTealMin:iTealMax+1],axis=-1)
-    return teal, np.mean(tealb)
+    b=[400,600]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def getNDVI(R,W):
     NIRb=[780,850]
@@ -78,15 +78,23 @@ def getNDVI(R,W):
     return (NIR-red)/(NIR+red), red, NIR
 
 def getCloud(R,W):
-    tealb=[400,1000]
-    iTealMin=np.nanargmin(np.abs(W-tealb[0]))
-    iTealMax=np.nanargmin(np.abs(W-tealb[1]))
-    teal=np.nanmean(R[...,iTealMin:iTealMax+1],axis=-1)
-    return teal, np.mean(tealb)
+    b=[400,1000]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
+
+def getBLandsat(R,W,numB):
+    dico_b={'1':[500,600],'2':[600,700],'3':[700,800],'4':[800,1100]}
+    b=dico_b[numB]
+    iMin=np.nanargmin(np.abs(W-b[0]))
+    iMax=np.nanargmin(np.abs(W-b[1]))
+    r=np.nanmean(R[...,iMin:iMax+1],axis=-1)
+    return r, np.mean(b)
 
 def NDWI_water(R,W):
-    NIRb=[780,860]
-    greenb=[492,577]
+    NIRb=[790,860]
+    greenb=[540,577]
     iNirMin=np.nanargmin(np.abs(W-NIRb[0]))
     iNirMax=np.nanargmin(np.abs(W-NIRb[1]))
     iGreenMin=np.nanargmin(np.abs(W-greenb[0]))

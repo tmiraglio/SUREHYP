@@ -5,6 +5,9 @@ import ee
 import geetools
 import os
 from pathlib import Path
+import skimage.measure
+import skimage.morphology
+import skimage.transform
 from scipy.signal import savgol_filter
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy import interpolate
@@ -22,6 +25,7 @@ import pandas as pd
 import subprocess
 import surehyp.various
 import surehyp.preprocess
+
 
 np.seterr(invalid='ignore')
 
@@ -854,6 +858,90 @@ def getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth):
     factor=f(bands)
     return factor
 
+def cloudAndShadowsDetection(bands,A,latit,doy,satelliteZenith,zenith,azimuth,slope,aspect,pixelSize=30):
+    '''
+    cloud and shadow detection adapted from Braaten et al 2015
+    bands: wavelengths of each band -- (b,) array
+    A: radiance array -- (m,n,b) array
+    latit, longit: site latitude and longitude in decimal degrees
+    year: YYYY
+    month: MM
+    day: DD
+    doy: Day Of Year
+    satelliteZenith: satellite zenith angle in degrees
+
+    return the masks for clearview, shadows and clouds -- (m,n) arrays
+    '''
+
+    factor=getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth).astype(np.float32)
+    A=factor*A
+    A[A<=0]=0
+    A=A.astype(np.float32)
+
+    B1,_=surehyp.various.getBLandsat(A,bands,'1')
+    B2,_=surehyp.various.getBLandsat(A,bands,'2')
+    NDGR=(B1-B2)/(B1+B2)
+    
+    CL=np.zeros((A.shape[0],A.shape[1])).astype(int)
+    CL[((B1>17.5) & (NDGR>-0.1)) | (B1>39)] = 1 
+
+    CL=skimage.measure.label(CL,background=0)
+    for label in np.unique(CL):
+        if (label>0):
+            if np.size(CL[CL==label])<9:
+                CL[CL==label]=0
+    CL[CL>0]=1
+    CL=skimage.morphology.binary_dilation(CL,footprint=np.ones((5,5)))
+
+    NDWI,_,_=surehyp.various.NDWI_water(A,bands)
+    WL=np.zeros((A.shape[0],A.shape[1])).astype(int)
+    WL[NDWI>0.3]=1
+    
+    WL=skimage.measure.label(WL,background=0)
+    for label in np.unique(WL):
+        if (label>0):
+            if np.size(WL[WL==label])<6:
+                WL[WL==label]=0
+    WL[WL>0]=1
+    WL=skimage.morphology.binary_dilation(WL,footprint=np.ones((5,5)))
+
+    B4,_=surehyp.various.getBLandsat(A,bands,'4')
+    B4c=MM_topo_correction(B4,np.array([950]),slope,aspect,zenith,azimuth)
+
+    X1=np.nanmean(B4c[CL!=1])
+    Y=0.4*X1+0.0248*1e2  # *1.2 as Braaten et al 2015 assumes reflectance to be between 0-1 while with its default parameters SUREHYP has 0-100
+    X2=np.nanmean(B4c[(B4c>Y)&(CL!=1)]) 
+    ST=0.47*X2+0.0073*1e2 # same here
+    CCSL=np.zeros((A.shape[0],A.shape[1])).astype(int)
+    CCSL[(B4c<ST)&(WL!=1)]=1
+    
+    tmp=skimage.morphology.binary_dilation(WL,footprint=np.ones((15,15)))
+    CCPL=np.zeros((A.shape[0],A.shape[1])).astype(int)
+    d1=int(1e3/np.tan((90-zenith)*np.pi/180)/pixelSize)
+    d2=int(7e3/np.tan((90-zenith)*np.pi/180)/pixelSize)
+    ds=np.arange(d1,d2,1).astype(int)
+    for d in ds:
+        tform=skimage.transform.SimilarityTransform(translation=[np.sin(azimuth*np.pi/180)*d,-np.cos(azimuth*np.pi/180)*d])
+        CCPL+=skimage.transform.warp(CL,tform)
+    CCPL[CCPL>1]=1
+
+    SHADOWS=CCPL+CCSL
+    SHADOWS[SHADOWS<2]=0
+    SHADOWS=skimage.measure.label(SHADOWS,background=0)
+    for label in np.unique(SHADOWS):
+        if (label>0):
+            if np.size(SHADOWS[SHADOWS==label])<9:
+                SHADOWS[SHADOWS==label]=0
+    SHADOWS[SHADOWS>0]=1
+    SHADOWS=skimage.morphology.binary_dilation(SHADOWS,footprint=np.ones((5,5)))
+
+    CLEARVIEW=np.zeros((A.shape[0],A.shape[1])).astype(int)
+    CLEARVIEW[A[:,:,0]>0]=1
+    CLEARVIEW[CL==1]=0
+    CLEARVIEW[SHADOWS==1]=0
+
+    return CLEARVIEW,CL,SHADOWS
+
 def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflectanceThreshold=1,cloudReflectance=30):
     '''
     bands: wavelengths of each band -- (b,) array
@@ -877,11 +965,6 @@ def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflect
     A=factor*A
     A[A<=0]=0
     A=A.astype(np.float32)
-
-    #build cloud mask
-    rVis,_=surehyp.various.getCloud(A,bands)
-    cloudMask=np.zeros((A.shape[0],A.shape[1]))
-    cloudMask[rVis>cloudReflectance]=1
 
     Rcirrus=A[:,:,np.argmin(np.abs(bands-1380))]
     r1380=Rcirrus[Rcirrus>=cirrusReflectanceThreshold] #if Reflectance TOA [0-100]
@@ -928,7 +1011,7 @@ def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflect
     else:
         A=A/factor
         A[A<=0]=0
-    return A,cloudMask
+    return A
 
 def splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,elev,prefix='elev'):
     '''
@@ -1385,7 +1468,7 @@ def MM_topo_correction(R,bands,tiltMap,wazimMap,zenith,azimuth,correction='weak'
     G[NDVI>0.2]=np.power(G[NDVI>0.2],b_veg)
     G[NDVI<0.2]=np.power(G[NDVI<0.2],b_soil)
     G[G<g]=g
-    return R*G
+    return np.squeeze(R)*np.squeeze(G)
 
 def writeAlbedoFile(R,bands,pathOut='./SMARTS2981-PC_Package/Albedo/Albedo.txt'):
     '''

@@ -97,14 +97,39 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
     doy=processing_metadata['doy']
     ####
 
+    if topo==True:
+        print('download DEM images from GEE')
+        path_to_dem = surehyp.atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID=demID,elevationName=elevationName)
+
+        print('reproject DEM images')
+        path_to_reprojected_dem = surehyp.atmoCorrection.reprojectDEM(pathToRadianceImage,path_elev=path_to_dem)
+
+        print('resampling')
+        path_elev=surehyp.atmoCorrection.matchResolution(pathToRadianceImage,path_elev=path_to_reprojected_dem)
+
+        print("extract the data corresponding to the Hyperion image's pixels")
+        elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_elev)
+    else:
+        slope=None
+        wazim=None
+
+    print('get clouds and shadows mask')
+    clearview, clouds, shadows = surehyp.atmoCorrection.cloudAndShadowsDetection(bands,L,latit,doy,satelliteZenith,zenith,azimuth,slope,wazim)
+    
+    np.save(pathToOutImage+'_cloud_mask',clouds)
+    np.save(pathToOutImage+'_shadows_mask',shadows)
+    np.save(pathToOutImage+'_clearview_mask',clearview)
+
     print('get haze spectrum')
     L,Lhaze=surehyp.atmoCorrection.darkObjectDehazing(L,bands)
 
-    print('removal of thin cirrus')
-    L,cloudMask=surehyp.atmoCorrection.cirrusRemoval(bands,L,latit,doy,satelliteZenith,zenith,azimuth)
+    print('mask non clearview pixels')
+    L[clearview==0]=0
 
-    print('save cloudmask')
-    np.save(pathToOutImage+'_cloudMask',cloudMask)
+    print('removal of thin cirrus')
+    L=surehyp.atmoCorrection.cirrusRemoval(bands,L,latit,doy,satelliteZenith,zenith,azimuth)
+
+
 
     print('get average elevation of the scene from GEE')
     altit=surehyp.atmoCorrection.getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID=demID,elevationName=elevationName)
@@ -144,20 +169,6 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
         f=interpolate.interp1d(w,r,bounds_error=False,fill_value='extrapolate')
         rho_background=f(df['Wvlgth']*1E-3)
 
-        print('download DEM images from GEE')
-        path_to_dem = surehyp.atmoCorrection.getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID=demID,elevationName=elevationName)
-
-        print('reproject DEM images')
-        path_to_reprojected_dem = surehyp.atmoCorrection.reprojectDEM(pathToRadianceImage,path_elev=path_to_dem)
-
-        print('resampling')
-        path_elev=surehyp.atmoCorrection.matchResolution(pathToRadianceImage,path_elev=path_to_reprojected_dem)
-
-        path_elev='C:/Users/tmiragli/Github/SUREHYP/elev/tmp_blurred.tif'
-
-        print("extract the data corresponding to the Hyperion image's pixels")
-        elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_elev)
-
         print('computing the LUT for the rough terrain correction')
         R=surehyp.atmoCorrection.getDemReflectance(altitMap=elev,tiltMap=slope,wazimMap=wazim,stepAltit=stepAltit,stepTilt=stepTilt,stepWazim=stepWazim,latit=latit,IH2O=0,WV=wv,IO3=IO3,IALT=0,AbO3=o3,doy=doy,zenith=zenith,azimuth=azimuth,satelliteZenith=satelliteZenith,satelliteAzimuth=satelliteAzimuth,L=L,bands=bands,IALBDX=1,rho_background=rho_background)
 
@@ -183,12 +194,12 @@ if __name__ == '__main__':
     pathToL1TimagesFiltered="./L1T/filteredImages/" #contains the TIF L1R images, each TIF file containing all bands
     
     pathOut='./OUT/' # folder where the outputs of SUREHYP will be written
-    fname='EO1H0490222003154110PZ' # ID of the Hyperion image
+    fname='EO1H0470262002153110PY' # ID of the Hyperion image
     nameOut=fname+'_test' # name of the corrected radiance image that will be save by preprocess_radiance, and will be opened by atmosphericCorrection
 
-    pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',destripingMethod='Pal',localDestriping=False,checkSmile=False)
+    #pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',destripingMethod='Pal',localDestriping=False,checkSmile=False)
 
-    pathToRadianceImage='C:/Users/tmiragli/Github/SUREHYP/OUT/EO1H0490222003154110PZ_test'
+    pathToRadianceImage='C:/Users/tmiragli/Github/SUREHYP/OUT/'+nameOut
 
     atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance_test_flat',stepAltit=1,stepTilt=15,stepWazim=15,demID='NRCan/CDEM',elevationName='elevation',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
 
