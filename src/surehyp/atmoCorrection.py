@@ -906,7 +906,10 @@ def cloudAndShadowsDetection(bands,A,latit,doy,satelliteZenith,zenith,azimuth,sl
     WL=skimage.morphology.binary_dilation(WL,footprint=np.ones((5,5)))
 
     B4,_=surehyp.various.getBLandsat(A,bands,'4')
-    B4c=MM_topo_correction(B4,np.array([950]),slope,aspect,zenith,azimuth)
+    if slope is not None:
+        B4c=MM_topo_correction(B4,np.array([950]),slope,aspect,zenith,azimuth)
+    else:
+        B4c=B4
 
     X1=np.nanmean(B4c[CL!=1])
     Y=0.4*X1+0.0248*1e2  # *1.2 as Braaten et al 2015 assumes reflectance to be between 0-1 while with its default parameters SUREHYP has 0-100
