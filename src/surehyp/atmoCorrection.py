@@ -1128,7 +1128,6 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID='
 
         with rasterio.open('./elev/'+f, "w", **out_meta) as dest:
             dest.write(mosaic)
-            dest.close()
 
     for f in os.listdir('.'):
         if '.zip' in f:
@@ -1168,7 +1167,6 @@ def reprojectImage(im,dst_crs,pathOut):
                 resampling=Resampling.nearest,
                 num_threads=10,
                 warp_mem_limit=1024)
-            dst.close() 
     return pathOut
 
 def get_target_rows_cols(im1,imSecondary, maskBand=40):
@@ -1377,10 +1375,9 @@ def matchResolution(pathToIm1,path_elev='./elev/tmp.tif',path_out='./elev/tmp_bl
   
     with rasterio.open(path_out,'w',**im2.meta) as out:
         out.write(elev)
-        out.close()
     return path_out
 
-def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img'):
+def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img',maskBand=40):
     '''
     pathToIm1: path to the reference image for which the DEM data needs to be extracted
     path_elev: path to the DEM image
@@ -1393,12 +1390,12 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img'):
     ar1=np.moveaxis(ar1,0,2)
     im2=rasterio.open(path_elev)
     meta=im2.meta
-    rows1,cols1,rows2, cols2=get_target_rows_cols(im1,im2) #elev, slope and aspect all have the same projection
+    rows1,cols1,rows2, cols2=get_target_rows_cols(im1,im2,maskBand=maskBand) #elev, slope and aspect all have the same projection
    
     elev=np.squeeze(im2.read())
     elev=extractSecondaryData(ar1,elev,rows1,cols1,rows2, cols2)
 
-    elev[ar1[:,:,40]<=0]=np.nan
+    elev[ar1[:,:,maskBand]<=0]=np.nan
     elev=elev*1e-3
     elev[elev<0]=np.nan
     elev[elev>9]=np.nan
@@ -1406,21 +1403,15 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img'):
     slope=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='slope_degrees')
     slope=extractSecondaryData(ar1,slope,rows1,cols1,rows2, cols2)
     
-    slope[ar1[:,:,40]<=0]=np.nan
+    slope[ar1[:,:,maskBand]<=0]=np.nan
     slope[slope<0]=np.nan
     slope[slope>90]=np.nan
 
     wazim=rd.TerrainAttribute(rd.LoadGDAL(path_elev),attrib='aspect')
     wazim=extractSecondaryData(ar1,wazim,rows1,cols1,rows2, cols2)
-    wazim[ar1[:,:,40]<=0]=np.nan
+    wazim[ar1[:,:,maskBand]<=0]=np.nan
     wazim[wazim<0]=np.nan
     wazim[wazim>360]=np.nan
-
-
-    fig,ax=plt.subplots(1,3)
-    ax[0].imshow(elev)
-    ax[1].imshow(slope)
-    ax[2].imshow(wazim)
 
     return elev, slope, wazim
 
