@@ -24,9 +24,8 @@ import surehyp.various
 import surehyp.preprocess
 
 np.seterr(invalid='ignore')
-
-
-def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None,IALBDX=1,RHOX=None,smartsVersion='smarts298',smartsExecutable='smarts2981_PC_64bit.exe'):
+                         
+def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10,ITILT=0,TILT=None,WAZIM=None,TAU550=None,IMASS=0,ZENITH=None,AZIM=None,SUNCOR=1,doy=269,ITURB=5,VISI=None,IH2O=1,WV=None,IO3=1,IALT=None,AbO3=None,IALBDX=1,RHOX=None):
     '''
     see SMARTS documentation for details regarding the inputs and outputs
     
@@ -160,11 +159,11 @@ def runSMARTS(ALTIT=0.3,LATIT=48.1,LONGIT=-79.3,YEAR=2013,MONTH=9,DAY=26,HOUR=10
     LONGIT=str(LONGIT)
     DSTEP=None
 
-    output=smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP,smartsVersion=smartsVersion,smartsExecutable=smartsExecutable)
+    output=smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP)
 
     return output
 
-def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP,smartsVersion='smarts298',smartsExecutable='smarts2981_PC_64bit.exe'):
+def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH, TAIR, SEASON, TDAY, IH2O, W, IO3, IALT, AbO3, IGAS, ILOAD, ApCH2O, ApCH4, ApCO, ApHNO2, ApHNO3, ApNO,ApNO2, ApNO3, ApO3, ApSO2, qCO2, ISPCTR, AEROS, ALPHA1, ALPHA2, OMEGL, GG, ITURB, TAU5, BETA, BCHUEP, RANGE, VISI, TAU550, IALBDX, RHOX, ITILT, IALBDG,TILT, WAZIM,  RHOG, WLMN, WLMX, SUNCOR, SOLARC, IPRT, WPMN, WPMX, INTVL, IOUT, ICIRC, SLOPE, APERT, LIMIT, ISCAN, IFILT, WV1, WV2, STEP, FWHM, ILLUM,IUV, IMASS, ZENITH, AZIM, ELEV, AMASS, YEAR, MONTH, DAY, HOUR, LONGIT, ZONE, DSTEP):
 
     # Check if SMARTSPATH environment variable exists and change working
     # directory if it does.
@@ -466,8 +465,6 @@ def smartsAll_original(CMNT, ISPR, SPR, ALTIT, HEIGHT, LATIT, IATMOS, ATMOS, RH,
     # Return to original working directory.
     if original_wd:
         os.chdir(original_wd)
-
-
 
     return data
 
@@ -1195,13 +1192,15 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     for i in tqdm(np.arange(xv.shape[0]),desc='ALTITS'):
         df=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=latit,IMASS=0,ZENITH=np.abs(zenith),AZIM=azimuth,SUNCOR=get_SUNCOR(doy),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
         df_gs=runSMARTS(ALTIT=xv[i,0,0],ITILT='1',TILT=0,WAZIM=0,LATIT=0,IMASS=0,SUNCOR=get_SUNCOR(doy),ITURB=5,ZENITH=np.abs(satelliteZenith),AZIM=np.abs(satelliteAzimuth),IH2O=IH2O,WV=WV,IO3=IO3,IALT=IALT,AbO3=AbO3,IALBDX=1,RHOX=0.2)
-        
-        E=df['Extraterrestrial_spectrm'].astype(np.float32)
-        T_sg=df['Direct_rad_transmittance'].astype(np.float32)
-        Dft=df['Total_Diffuse_tilt_irrad'].astype(np.float32)
-        T_gs=df_gs['Direct_rad_transmittance'].astype(np.float32)
-        Dft=df['Total_Diffuse_tilt_irrad']
-        
+
+        E=df['Extraterrestrial_spectrm'].astype(np.float)
+        T_sg=df['Direct_rad_transmittance'].astype(np.float)
+        T_gs=df_gs['Direct_rad_transmittance'].astype(np.float)
+        try:
+            Dft=df['Difuse_tilted_irradiance'].astype(np.float)
+        except:
+            Dft=df['Total_Diffuse_tilt_irrad'].astype(np.float)
+
         for j in tqdm(np.arange(xv.shape[1]),desc='TILTS '):
             for k in tqdm(np.arange(xv.shape[2]),desc='WAZIMS'):
                 #compute solar illumination angles betai
@@ -1253,6 +1252,7 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
         f=interpolate.interp1d(W,M)
         R[idxx,:]=f(bands)*Lflat[idxx,:]
     R=R.reshape(L.shape)
+
     return R
 
 
@@ -1311,7 +1311,7 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img'):
    
     elev=np.squeeze(im2.read())
     elev=extractSecondaryData(ar1,elev,rows1,cols1,rows2, cols2)
-
+    
     elev[ar1[:,:,40]<=0]=np.nan
     elev=elev*1e-3
     elev[elev<0]=np.nan
@@ -1331,10 +1331,11 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img'):
     wazim[wazim>360]=np.nan
 
 
-    fig,ax=plt.subplots(1,3)
-    ax[0].imshow(elev)
-    ax[1].imshow(slope)
-    ax[2].imshow(wazim)
+    #fig,ax=plt.subplots(1,3)
+    #ax[0].imshow(elev)
+    #ax[1].imshow(slope)
+    #ax[2].imshow(wazim)
+    #plt.show()
 
     return elev, slope, wazim
 

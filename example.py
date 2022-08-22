@@ -153,8 +153,6 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
         print('resampling')
         path_elev=surehyp.atmoCorrection.matchResolution(pathToRadianceImage,path_elev=path_to_reprojected_dem)
 
-        path_elev='C:/Users/tmiragli/Github/SUREHYP/elev/tmp_blurred.tif'
-
         print("extract the data corresponding to the Hyperion image's pixels")
         elev, slope, wazim=surehyp.atmoCorrection.extractDEMdata(pathToRadianceImage,path_elev=path_elev)
 
@@ -173,8 +171,17 @@ def atmosphericCorrection(pathToRadianceImage,pathToOutImage,stepAltit=1,stepTil
 if __name__ == '__main__':
 
     ee.Initialize()
-    os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/' #Path to the SMARTS folder
     
+    # if using SMARTS 295, point to the *bat.exe
+    os.environ['SMARTSPATH']='./SMARTS_295_PC/' #Path to the SMARTS folder
+    surehyp.atmoCorrection.smartsVersion='smarts295'
+    surehyp.atmoCorrection.smartsExecutable='smarts295bat.exe'
+    # else point to the regular exe
+    #os.environ['SMARTSPATH']='./SMARTS2981-PC_Package/' #Path to the SMARTS folder
+    #surehyp.atmoCorrection.smartsVersion='smarts298'
+    #surehyp.atmoCorrection.smartsExecutable='smarts2981_PC_64bit.exe'
+
+
 
     pathToL1Rmetadata='./METADATA/METADATA.csv' #path to the Hyperion metadata file provided by the USGS
 
@@ -187,8 +194,6 @@ if __name__ == '__main__':
     nameOut=fname+'_test' # name of the corrected radiance image that will be save by preprocess_radiance, and will be opened by atmosphericCorrection
 
     pathToRadianceImage=preprocess_radiance(fname,pathToL1Rmetadata,pathToL1Rimages,pathToL1Timages,pathToL1TimagesFiltered,pathOut,fname+'_test',destripingMethod='Pal',localDestriping=False,checkSmile=False)
-
-    pathToRadianceImage='C:/Users/tmiragli/Github/SUREHYP/OUT/EO1H0490222003154110PZ_test'
 
     atmosphericCorrection(pathToRadianceImage,pathOut+fname+'_reflectance_test_flat',stepAltit=1,stepTilt=15,stepWazim=15,demID='NRCan/CDEM',elevationName='elevation',smartsAlbedoFilePath=os.environ['SMARTSPATH']+'Albedo/Albedo.txt',topo=True)
 
