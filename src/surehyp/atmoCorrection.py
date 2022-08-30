@@ -530,8 +530,12 @@ def getImageAndParameters(path):
     processing_metadata['datestamp2']=img.metadata['acquisition time start']
     processing_metadata['zenith']=float(img.metadata['sun zenith'])
     processing_metadata['azimuth']=float(img.metadata['sun azimuth'])
-    processing_metadata['satelliteZenith']=float(img.metadata['satellite zenith'])
-    processing_metadata['satelliteAzimuth']=float(img.metadata['satellite azimuth'])-90
+
+    if float(img.metadata['satellite zenith'])<0:
+        processing_metadata['satelliteAzimuth']=float(img.metadata['satellite azimuth'])
+    else:
+        processing_metadata['satelliteAzimuth']=float(img.metadata['satellite azimuth'])+180
+    processing_metadata['satelliteZenith']=np.abs(float(img.metadata['satellite zenith']))
     processing_metadata['scaleFactor']=float(img.metadata['scale factor'])
 
     processing_metadata['UL_lat']=float(img.metadata['ul_lat'])
@@ -555,6 +559,9 @@ def getImageAndParameters(path):
 
 
     metadata=img.metadata.copy()
+    metadata['satellite azimuth']=processing_metadata['satelliteAzimuth']
+    metadata['satellite zenith']=processing_metadata['satelliteZenith']
+
 
     L=img[:,:,:].astype(np.float32)/processing_metadata['scaleFactor']
     L=L.astype(np.float32) #image in uW.cm-2.nm-1.sr-1 with scalefactor
