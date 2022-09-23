@@ -23,7 +23,7 @@ For ease of installation, it is recommended to install `pyhdf`, `rasterio`, `ric
 conda install pyhdf rasterio richdem gdal
 ```
 
-Then, SUREHYP and all other packages can be installed with `pip`: 
+Then, SUREHYP and all other dependencies can be installed with `pip`: 
 
 ```
 pip install surehyp
@@ -79,7 +79,7 @@ The corrected L1R image is then georeferenced using the L1T image, using matchin
 
 ### Atmospheric correction
 
-A thin cirrus removal method, according to the works of Gao and Li (2017), is available.
+A thin cirrus removal method, according to the works of Gao and Li (2017), is available, as well as a cloud and cloud shadow detection algorithm, adapted from Braaten et al. (2015).
 
 The atmospheric correction is based on the SMARTS (Gueymard (2001), Gueymard (2019)) radiative transfer model. Two options are available:
 
@@ -141,6 +141,8 @@ B. Datt, T. R. McVicar, T. G. van Niel, D. L. B. Jupp, and J. S. Pearlman, "Prep
 M. K. Pal, A. Porwal, T. M. Rasmussen,Noise reduction and destriping usinglocal spatial statistics and quadratic regression from Hyperion images,J. Appl. Remote Sens.14(1), 016515 (2020), doi: 10.1117/1.JRS.14.016515
 
 B.C. Gao and R.R. Li, Removal of thin cirrus scattering effects in Landsat 8 OLI images using the cirrus detecting channel, Remote Sensing 9, 834, 2017
+
+Braaten, J. D., Cohen, W. B., & Yang, Z. (2015). Automated cloud and cloud shadow identification in Landsat MSS imagery for temperate ecosystems. Remote Sensing of Environment, 169, 128�138. https://doi.org/10.1016/j.rse.2015.08.006
 
 C. A. Gueymard, "Parameterized transmittance model for direct beam and circumsolar spectral irradiance", Solar Energy, vol. 71, no. 5, pp. 325-346, Nov. 2001, doi: 10.1016/S0038-092X(01)00054-8.
 
