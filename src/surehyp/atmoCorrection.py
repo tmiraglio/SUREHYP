@@ -478,15 +478,20 @@ def getGEEdate(datestamp1,year,doy,longit,latit):
     '''
     Retrieves water vapor and ozone concentrations from GEE using the image metadata 
         Parameters:
-            datestamp1: date in YYYY/MM/DD or YYYY-MM-DD format
-            year: YYYY
-            doy: Day Of Year
-            longit: decimal longitude
-            latit: decimal latitude
+            :class:`string`:
+                - datestamp1: date in YYYY/MM/DD or YYYY-MM-DD format
+            :class:`int`:
+                - year: YYYY
+                - doy: Day Of Year
+            :class:`float`:
+                - longit: decimal longitude
+                - latit: decimal latitude
         Returns:
-            average water vapor in g.cm-2 
-            ozone concentration in atm-cm over the site
-            a flag indicating whether or not ozone could be retrieved
+            :class:`float`:
+                - average water vapor in g.cm-2 
+                - ozone concentration in atm-cm over the site
+            :class:`bool`:
+                - a flag indicating whether or not ozone could be retrieved
     '''
 
 
@@ -522,12 +527,15 @@ def getImageAndParameters(path):
     Extracts the image array and its associated acquisition parameters from the corrected radiance file
     returns the array as well as all the metadata required for the atmospheric correction phase
         Parameters:
-            path: path to the image saved by surehyp.preprocess.savePreprocessedL1R
+            :class:`string`:
+                - path: path to the image saved by surehyp.preprocess.savePreprocessedL1R
         Returns:
-            L: radiance array -- (m,n,b) array
-            bands: wavelengths of each band -- (b,) array
-            processing_metadata: metadata corresponding to the acquisition parameters, used for the atmospheric correciton
-            metadata: metadata of the ENVI file
+            :class:`array`:
+                - L: radiance array -- (m,n,b) array
+                - bands: wavelengths of each band -- (b,) array
+            :class:`dict`:
+                - processing_metadata: metadata corresponding to the acquisition parameters, used for the atmospheric correciton
+                - metadata: metadata of the ENVI file
     '''
 
     img=envi.open(path+'.hdr',path+'.img') #img in uW.cm-2.nm-1.sr-1, with a scaleFactor
@@ -583,15 +591,15 @@ def getImageAndParameters(path):
 def getGEEdem(UL_lat,UL_lon,UR_lat,UR_lon,LL_lat,LL_lon,LR_lat,LR_lon,demID='JAXA/ALOS/AW3D30/V3_2',elevationName='DSM'):
     '''
     returns the average site elevation in km using data from GEE
-    Parameters:
-        UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right
-        lon, lat: longitude, latitude
-        units in decimal degrees
-        demID: name of the GEE dataset
-        elevationName: name of the band corresponding to elevation
-    Returns:
-        average site altitude in kilometers (assumes GEE provides altitude in meters)
-
+        Parameters:
+            :class:`float`:
+                - UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right; lon, lat: longitude, latitude; units in decimal degrees
+            :class:`string`:
+                - demID: name of the GEE dataset
+                - elevationName: name of the band corresponding to elevation
+        Returns:
+            :class:`float`:
+                - average site altitude in kilometers (assumes GEE provides altitude in meters)
     '''
 
     numPixels=1
@@ -609,18 +617,23 @@ def getWaterVapor(bands,L,altit,latit,zenith,azimuth,doy,satelliteZenith,imass=0
     '''
     returns the site average water vapor content using the water absorption bands at 940 and 1120 and comparing the absorption depth over land with the absorption depths over a LUT generated with SMARTS for the same optical path
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            L: radiance array -- (m,n,b) array
-            altit: site altitude in km
-            latit, longit: site latitude and longitude in decimal degrees
-            year: YYYY
-            month: MM
-            day: DD
-            doy: Day Of Year
-            satelliteZenith: satellite zenith angle in degrees
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - L: radiance array -- (m,n,b) array
+            :class:`float`:
+                - altit: site altitude in km
+                - latit, longit: site latitude and longitude in decimal degrees
+            :class:`array`:
+                - year: YYYY
+                - month: MM
+                - day: DD
+                - doy: Day Of Year
+            :class:`float`:
+                - satelliteZenith: satellite zenith angle in degrees
             io3,ialt,o3,imass: see SMARTS documentation
         Returns:
-            wvImg: site average water vapor content
+            :class:`float`:
+                - wvImg: site average water vapor content
     '''
 
     #remove water pixels to keep only land surfaces
@@ -696,12 +709,14 @@ def darkObjectDehazing(L,bands, cloudMask=None):
     '''
     Estimates the average haze radiance in the image and removes it from the image
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            L: radiance array -- (m,n,b) array
-            cloudMask: cloud mask, 0 if not clouds, 1 if clouds -- (m,n) array
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - L: radiance array -- (m,n,b) array
+                - cloudMask: cloud mask, 0 if not clouds, 1 if clouds -- (m,n) array
         Returns:
-            L: the dehazed radiance array usign the Dark object substraction method by Chavez (1988)  -- (m,n,b) array
-            Lhaze: the haze radiance spectrum -- (b,) array
+            :class:`array`:
+                - L: the dehazed radiance array usign the Dark object substraction method by Chavez (1988)  -- (m,n,b) array
+                - Lhaze: the haze radiance spectrum -- (b,) array
     '''
 
     Ltmp=L.copy()
@@ -735,9 +750,11 @@ def get_SUNCOR(doy):
     '''
     Computes the sun-earth distance correction factor
         Parameters:
-            doy: Day of Year
+            :class:`int`:
+                - doy: Day of Year
         Returns:
-            the sun-earth distance correction factor
+            :class:`float`:
+                - the sun-earth distance correction factor
     '''
 
     #compute the sun-earth distance correction factor depending on the day of year
@@ -747,11 +764,14 @@ def smoothing(R,width=3,order=1):#,processO2=False,bands=None):
     '''
     Filters the array over its last axis with a Savitzky Golay filter
         Parameters:
-            R: array -- (...,b) array
-            width: width of the savitzky golay filter
-            order: order of the polynom for the filter
+            :class:`array`:
+                - R: array -- (...,b) array
+            :class:`int`:
+                - width: width of the savitzky golay filter
+                - order: order of the polynom for the filter
         Returns:
-            smoothed array
+            :class:`array`:
+                - smoothed array
     '''
     #if processO2==True: #remove band values from ]750,780[ and replaces them by values interpolated used the two previous and next R values
     #    argb=np.zeros(bands.shape).astype(int)
@@ -767,13 +787,14 @@ def smoothing(R,width=3,order=1):#,processO2=False,bands=None):
 def computeLtoRfactor(df,df_gs):
     '''
     Calculates the factors to convert TOA radiance to BOA reflectance considering a flat terrain correction
-    Parameters:
-        df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
-        df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
-    Returns:
-        the correction factors for each wavelength
+        Parameters:
+            :class:`pd.DataFrame`:
+                - df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
+                - df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
+        Returns:
+            :class:`array`:
+                - the correction factors for each wavelength
     '''
-
 
     #compute the factor to convert TOA radiance to surface reflectance
     W=df['Wvlgth'].values
@@ -798,22 +819,28 @@ def getAtmosphericParameters(bands,L,datestamp1,year,doy,longit,latit,altit,sate
     '''
     Returns atmopsheric ozone and water vapor content for the study site from GEE or (for water, if possible) directly from the image
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            L: radiance array -- (m,n,b) array
-            datestamp1: date in YYYY/MM/DD or YYYY-MM-DD format
-            year: YYYY
-            month: MM
-            minute: mm
-            day: DD
-            doy: Day Of Year
-            latit, longit: site latitude and longitude in decimal degrees
-            altit: site altitude in km
-            satelliteZenith: satellite zenith angle in degrees
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - L: radiance array -- (m,n,b) array
+            :class:`string`:
+                - datestamp1: date in YYYY/MM/DD or YYYY-MM-DD format
+            :class:`int`:
+                - year: YYYY
+                - month: MM
+                - minute: mm
+                - day: DD
+                - doy: Day Of Year
+            :class:`float`:
+                - latit, longit: site latitude and longitude in decimal degrees
+                - altit: site altitude in km
+                - satelliteZenith: satellite zenith angle in degrees
             io3,ialt,o3,imass: see SMARTS documentation
         Returns:
-            average water vapor in g.cm-2 
-            ozone concentration in atm-cm over the site
-            a flag indicating whether or not ozone could be retrieved
+            :class:`float`:
+                - average water vapor in g.cm-2 
+                - ozone concentration in atm-cm over the site
+            :class:`bool`:
+                - a flag indicating whether or not ozone could be retrieved
     '''
 
     #obtain some atmospheric parameters using GEE
@@ -831,12 +858,15 @@ def computeLtoR(L,bands,df,df_gs):
     '''
     Calculates the BOA reflectance from the TOA radiance considering a flat terrain correction
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            L: at satellite radiance array -- (m,n,b) array
-            df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
-            df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - L: at satellite radiance array -- (m,n,b) array
+            :class:`pd.DataFrame`:
+                - df: dataframe containing the outputs of the SMARTS simulation for the sun-ground optical path
+                - df_gs: dataframe containing the outputs of the SMARTS simulation for the ground-sensor optical path
         Returns:
-            R: the BOA reflectance  -- (m,n,b) array
+            :class:`array`:
+                - R: the BOA reflectance  -- (m,n,b) array
     '''
 
     #get the factor to convert TOA radiance to surface reflectance and return the reflectance
@@ -851,10 +881,14 @@ def saveRimage(R,metadata,pathOut,scaleFactor=100):
     '''
     Saves the reflectance image to the given path
         Parameters:
-            R: array to save -- (m,n,b) array
-            metadata: image metadata (ENVI format for the Spectral library)
-            pathOut: pathout (must end with .hdr)
-            scaleFactor: scaling factor to multiply the reflectance with. Allows for saving the array in unsigned int16 format to save space
+            :class:`array`:
+                - R: array to save -- (m,n,b) array
+            :class:`dict`:
+                - metadata: image metadata (ENVI format for the Spectral library)
+            :class:`string`:
+                - pathOut: pathout (must end with .hdr)
+            :class:`int`:
+                - scaleFactor: scaling factor to multiply the reflectance with. Allows for saving the array in unsigned int16 format to save space
     '''
 
     scale=scaleFactor*np.ones(R.shape[2]).astype(int)
@@ -869,15 +903,20 @@ def getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth):
     '''
     Calculates the factors to get TOA reflectance from at satellite radiance
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            latit, longit: site latitude and longitude in decimal degrees
-            year: YYYY
-            month: MM
-            day: DD
-            doy: Day Of Year
-            satelliteZenith: satellite zenith angle in degrees
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+            :class:`float`:
+                - latit, longit: site latitude and longitude in decimal degrees
+            :class:`int`:
+                - year: YYYY
+                - month: MM
+                - day: DD
+                - doy: Day Of Year
+            :class:`float`:
+                - satelliteZenith: satellite zenith angle in degrees
         Returns:
-            the conversion factors for each wavelength
+            :class:`array`:
+                - the conversion factors for each wavelength
     '''
 
     #compute TOA reflectance
@@ -895,16 +934,21 @@ def cloudAndShadowsDetection(bands,A,latit,doy,satelliteZenith,zenith,azimuth,sl
     '''
     Retrieves clear view, cloud, and cloud shadows masks from the image. Cloud and shadow detection adapted from Braaten et al 2015
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            A: radiance array -- (m,n,b) array
-            latit, longit: site latitude and longitude in decimal degrees
-            year: YYYY
-            month: MM
-            day: DD
-            doy: Day Of Year
-            satelliteZenith: satellite zenith angle in degrees
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - A: radiance array -- (m,n,b) array
+            :class:`float`:
+                - latit, longit: site latitude and longitude in decimal degrees
+            :class:`int`:
+                - year: YYYY
+                - month: MM
+                - day: DD
+                - doy: Day Of Year
+            :class:`float`:
+                - satelliteZenith: satellite zenith angle in degrees
         Returns:
-            masks for clearview, shadows and clouds -- (m,n) arrays
+            :class:`array`:
+                - masks for clearview, shadows and clouds -- (m,n) arrays
     '''
 
     factor=getTOAreflectanceFactor(bands,latit,doy,satelliteZenith,zenith,azimuth).astype(np.float32)
@@ -983,18 +1027,23 @@ def cirrusRemoval(bands,A,latit,doy,satelliteZenith,zenith,azimuth,cirrusReflect
     '''
     Attemps a thin cirrus correction using the method presented by Gao et al 1997, 2017 
         Parameters:
-            bands: wavelengths of each band -- (b,) array
-            A: radiance array -- (m,n,b) array
-            latit, longit: site latitude and longitude in decimal degrees
-            year: YYYY
-            month: MM
-            day: DD
-            doy: Day Of Year
-            satelliteZenith: satellite zenith angle in degrees
-            cirrusReflectanceThreshold: TOA reflectance below which pixels at 1380 um  are considered to be 0 even though they are not
-            cloudReflectance: reflectance threshold to determine if pixel is a cloud
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - A: radiance array -- (m,n,b) array
+            :class:`float`:
+                - latit, longit: site latitude and longitude in decimal degrees
+            :class:`int`:
+                - year: YYYY
+                - month: MM
+                - day: DD
+                - doy: Day Of Year
+            :class:`float`:
+                - satelliteZenith: satellite zenith angle in degrees
+                - cirrusReflectanceThreshold: TOA reflectance below which pixels at 1380 um  are considered to be 0 even though they are not
+                - cloudReflectance: reflectance threshold to determine if pixel is a cloud
         Returns:
-            cirrus-corrected radiance array -- (m,n,b) array
+            :class:`array`:
+                - cirrus-corrected radiance array -- (m,n,b) array
     '''
 
     #uses the method presented by Gao et al 1997, 2017 to remove cirrus effects
@@ -1057,12 +1106,14 @@ def splitDEMdownload(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,ele
     if the GEE image to download is too large, divide it in four and download each subimage
     recursive function if the subimage is still too large
         Parameters:
-            UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right for 
-                lon, lat: longitude, latitude units in decimal degrees
-            elev: GEE image to download
-            prefix: folder names (they will appear as 'prefix_*')
+            :class:`float`:
+                - UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right for ; lon, lat: longitude, latitude; units in decimal degrees
+            :class:`string`:
+                - elev: GEE image to download
+                - prefix: folder names (they will appear as 'prefix_*')
         Returns:
-            a list of the folders containing the subimages
+            :class:`list`:
+                - a list of the folders containing the subimages
     '''
     #print('splitting download of '+prefix)
 
@@ -1113,12 +1164,14 @@ def getDEMimages(UL_lon,UL_lat,UR_lon,UR_lat,LR_lon,LR_lat,LL_lon,LL_lat,demID='
     '''
     downloads the DEM image for the region delimited by the latitudes and longitudes from GEE
         Parameters:
-            UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right for
-                lon, lat: longitude, latitude units in decimal degrees
-            demID: name of the GEE dataset
-            elevationName: name of the band correspond to elevation
+            :class:`float`:
+                - UL, UR, LL, LR: Upper left, Upper right, Lower left, Lower right for; lon, lat: longitude, latitude; units in decimal degrees
+            :class:`string`:
+                - demID: name of the GEE dataset
+                - elevationName: name of the band correspond to elevation
         Returns:
-            path to the downloaded DEM image
+            :class:`string`:
+                - path to the downloaded DEM image
     '''
     try:
         elev = ee.Image(demID);
@@ -1177,11 +1230,14 @@ def reprojectImage(im,dst_crs,pathOut):
     '''
     Reprojects an image to another CRS
         Parameters:
-            im: rasterio image to reproject
-            dst_crs: crs to reproject img to
-            pathOut: path to save the reprojected image
+            :class:`rasterio image`:
+                - im: rasterio image to reproject
+            :class:`string`:
+                - dst_crs: crs to reproject img to
+                - pathOut: path to save the reprojected image
         Returns:
-            path of the saved reprojected image
+            :class:`string`:
+                - path of the saved reprojected image
     '''
 
     with im as src:
@@ -1213,12 +1269,15 @@ def get_target_rows_cols(im1,imSecondary, maskBand=40):
     '''
     finds the position of non null matching-location pixels in im1 and imSecondary
         Parameters:
-            im1: rasterio reference image
-            imSecondary: rasterio image
-            maskBand: band used to keep pixels containing values: pixels with negative values for this band will not be considered
+            :class:`rasterio image`:
+                - im1: rasterio reference image
+                - imSecondary: rasterio image
+            :class:`int`:
+                - maskBand: band used to keep pixels containing values: pixels with negative values for this band will not be considered
         Returns:
-            rows, cols: indexes of pixels containing values in im1
-            rowsSecondary, colsSecondary: indexes of the pixels in imSecondary that are associated with rows, cols in im1
+            :class:`array`:
+                - rows, cols: indexes of pixels containing values in im1
+                - rowsSecondary, colsSecondary: indexes of the pixels in imSecondary that are associated with rows, cols in im1
     '''
 
     T0=im1.transform
@@ -1243,12 +1302,14 @@ def extractSecondaryData(array1,array2,rows,cols,rowsSecondary,colsSecondary):
     '''
     Trims array2 so that its empty pixels match those of array1
         Parameters:
-            array1: reference array -- (m,n,...) array
-            array2: (m,n) array
-            rows, cols: indexes of pixels containing values in array1
-            rowsSecondary, colsSecondary: indexes of the pixels in array2 that are associated with rows, cols in array1
+            :class:`array`:
+                - array1: reference array -- (m,n,...) array
+                - array2: (m,n) array
+                - rows, cols: indexes of pixels containing values in array1
+                - rowsSecondary, colsSecondary: indexes of the pixels in array2 that are associated with rows, cols in array1
         Returns:
-            array with shape (m,n) containing the values of array2
+            :class:`array`:
+                - array with shape (m,n) containing the values of array2
     '''
 
     #remove OOB values
@@ -1278,24 +1339,31 @@ def getDemReflectance(altitMap,tiltMap,wazimMap,stepAltit,stepTilt,stepWazim,lat
     '''
     Calculates the BOA reflectance from the radiance image, using a rough terrain atmospheric correction
         Parameters:
-            altitMap: elevation map of the study site (km) -- (m,n) array
-            tiltMap: slope tilt angle map (degree) -- (m,n) array
-            wazimMap: slope aspect map (degree) -- (m,n) array
-            stepAltit, stepTilt, stepWazim: steps for the sampling scheme over the LUT over altitude, slope angle and asspect
-            longit, latit: longitude, latitude
-            year: YYYY
-            month: MM
-            day: DD
-            doy: Day Of Year
-            satelliteZenith: satellite zenith angle in degrees
-            satelliteAzimuth: satellite azimuth angle in degrees (may be set to 0 here as per SMARTS doc)
-            bands: wavelengths of each band -- (b,) array
-            L: at satellite radiance array -- (m,n,b) array
-            WV: site water vapor
-            AbO3: site ozone
+            :class:`array`:
+                - altitMap: elevation map of the study site (km) -- (m,n) array
+                - tiltMap: slope tilt angle map (degree) -- (m,n) array
+                - wazimMap: slope aspect map (degree) -- (m,n) array
+            :class:`float`:
+                - stepAltit, stepTilt, stepWazim: steps for the sampling scheme over the LUT over altitude, slope angle and asspect
+                - longit, latit: longitude, latitude
+            :class:`int`:
+                - year: YYYY
+                - month: MM
+                - day: DD
+                - doy: Day Of Year
+            :class:`float`:
+                - satelliteZenith: satellite zenith angle in degrees
+                - satelliteAzimuth: satellite azimuth angle in degrees (may be set to 0 here as per SMARTS doc)
+            :class:`array`:
+                - bands: wavelengths of each band -- (b,) array
+                - L: at satellite radiance array -- (m,n,b) array
+            :class:`float`:
+                - WV: site water vapor
+                - AbO3: site ozone
             IH2O, IO3, IALT: see SMARTS documentation, leave untouched unless you want to edit the function
         Returns:
-            The BOA reflectance array
+            :class:`array`:
+                - The BOA reflectance array
     '''
 
     #prepare the iteration vectors for the LUT building
@@ -1415,12 +1483,15 @@ def matchResolution(pathToIm1,path_elev='./elev/tmp.tif',path_out='./elev/tmp_bl
     '''
     smoothes the image stored in path_elev so that the values in each pixel correspond to the values that a sensor with a different spatial FWHM would have acquired
         Parameters:
-            pathToIm1: path to the reference image for which the DEM data needs to be extracted
-            path_elev: path to the DEM image
-            path_out: path to the degraded image
-            extension: extension of im1
+            :class:`rasterio image`:
+                - pathToIm1: path to the reference image for which the DEM data needs to be extracted
+            :class:`string`:
+                - path_elev: path to the DEM image
+                - path_out: path to the degraded image
+                - extension: extension of im1
         Returns:
-            path_out: path to the degraded image
+            :class:`string`:
+                - path_out: path to the degraded image
     '''
 
     im1=rasterio.open(pathToIm1+extension)
@@ -1437,14 +1508,17 @@ def extractDEMdata(pathToIm1,path_elev='./elev/tmp.tif',extension='.img',maskBan
     '''
     Computes elevation, slope, and aspect data for the area corresponding to the hyperion strip
         Parameters:
-            pathToIm1: path to the reference image for which the DEM data needs to be extracted
-            path_elev: path to the DEM image
-            extension: extension of im1
-            maskBand: Hyperion band used to mask the DEM-related pixels that do not need to contain data
+            :class:`string`:
+                - pathToIm1: path to the reference image for which the DEM data needs to be extracted
+                - path_elev: path to the DEM image
+                - extension: extension of im1
+            :class:`int`:
+                - maskBand: Hyperion band used to mask the DEM-related pixels that do not need to contain data
         Returns:
-            elevation: (degree) -- (m,n) arrays
-            slope: (degree) -- (m,n) arrays 
-            aspect (km) -- (m,n) arrays
+            :class:`array`:
+                - elevation: (degree) -- (m,n) arrays
+                - slope: (degree) -- (m,n) arrays 
+                - aspect (km) -- (m,n) arrays
     '''
 
     im1=rasterio.open(pathToIm1+extension)
@@ -1481,17 +1555,20 @@ def MM_topo_correction(R,bands,tiltMap,wazimMap,zenith,azimuth,correction='weak'
     '''
     Performs a MM correction as presented in Richter et al. (2009), with the parameters suggested in the ATCOR Theoretical background document v.9.1.1
         Parameters:
-            R: reflectance image -- (m,n,b) array
-            bands: wavelengths associated to the bands -- (b,) array
-            altitMap: elevation map of the study site (km) -- (m,n) array
-            tiltMap: slope tilt angle map (degree) -- (m,n) array
-            wazimMap: slope aspect map (degree) -- (m,n) array
-            zenith: sun zenith angle in degrees
-            azimuth: sun azimuth angle in degrees
-            correction: strength of the correction
-            g: minimum value for the correction factor
+            :class:`numpy.ndarray`:
+                - R: reflectance image -- (m,n,b) array
+                - bands: wavelengths associated to the bands -- (b,) array
+                - altitMap: elevation map of the study site (km) -- (m,n) array
+                - tiltMap: slope tilt angle map (degree) -- (m,n) array
+                - wazimMap: slope aspect map (degree) -- (m,n) array
+            :class:`np.float`
+                - zenith: sun zenith angle in degrees
+                - azimuth: sun azimuth angle in degrees
+                - correction: strength of the correction
+                - g: minimum value for the correction factor
         Returns:
-            The corrected BOA reflectance array
+            :class:`numpy.ndarray`:
+                - np.squeeze(R)*np.squeeze(G): The corrected BOA reflectance array
     '''
     b_vals={'weak':[0.75,0.33],'strong':[0.75,1]}
 
@@ -1533,11 +1610,14 @@ def writeAlbedoFile(R,bands,pathOut='./SMARTS2981-PC_Package/Albedo/Albedo.txt')
     '''
     Writes a text file containing the average scene BOA reflectance in a format usable by SMARTS
         Parameters:
-            R: reflectance [0-100] -- (b,) array
-            bands: wavelengths associated to the bands -- (b,) array
-            pathOut: path of the SMARTS Albedo.txt file
+            :class:`numpy.ndarray`:
+                - R: reflectance [0-100] -- (b,) array
+                - bands: wavelengths associated to the bands -- (b,) array
+            :class:`string`:
+                - pathOut: path of the SMARTS Albedo.txt file
         Returns:
-            pathOut: path of the SMARTS Albedo.txt file
+            :class:`string`:
+                - pathOut: path of the SMARTS Albedo.txt file
     '''
     rho=R[R[:,:,40]>0,:]
     rho=np.round(np.nanmedian(rho,axis=0),3)
