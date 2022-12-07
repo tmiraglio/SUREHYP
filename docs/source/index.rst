@@ -7,13 +7,12 @@ Welcome to SUREHYP's documentation!
 ===================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
-
-   preprocess
-   atmoCorrection
-   various
-   api
+        preprocess
+        atmoCorrection
+        various
+        api
 
 Indices and tables
 ==================
