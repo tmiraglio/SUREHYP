@@ -1,0 +1,15 @@
+name: surehyp_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - gdal
+  - pyhdf
+  - scipy
+  - tqdm
+  - richdem
+  - rasterio
+  - scikit-learn
+  - python=3.9
+  - cython
+prefix: C:\Users\tmiragli\Anaconda3\envs\surehyp_env
