@@ -1,0 +1,9 @@
+matplotlib
+pandas
+rasterio
+cv2
+pyhdf
+scipy
+sklearn
+spectral
+numpy
