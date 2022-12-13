@@ -5,6 +5,9 @@
 # Required
 version: 2
 
+conda:
+  environment: docs/environment.yml     
+
 # Set the version of Python and other tools you might need
 build:
   os: ubuntu-20.04
@@ -26,7 +29,11 @@ sphinx:
 # Optionally declare the Python requirements required to build your docs
 python:
    install:
+   - method: pip
+     path: .
    - requirements: docs/requirements.txt
 
-conda:
-  environment: docs/environment.yml     
+
+
+submodules:
+  include: all
